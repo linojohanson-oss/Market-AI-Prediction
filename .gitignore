@@ -1,0 +1,51 @@
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.py[cod]
+*.pyo
+
+# IDE
+.idea/
+.vscode/
+
+# Virtual env
+venv/
+.venv/
+env/
+
+# ==========================
+# Datos y resultados
+# ==========================
+datos/
+modelos/
+reportes/
+logs/
+
+# ==========================
+# Modelos IA
+# ==========================
+*.pkl
+*.joblib
+*.keras
+*.h5
+
+# ==========================
+# Archivos pesados
+# ==========================
+*.xlsx
+*.xls
+*.csv
+
+# Mantener documentación
+!README.md
+!docs/**
+!requirements.txt
+
+# Sistema
+Thumbs.db
+.DS_Store
+
+datos local/
+modelos local/
+reportes local/
