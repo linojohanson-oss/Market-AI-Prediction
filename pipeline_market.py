@@ -5,7 +5,7 @@ import traceback
 
 ROOT = Path(__file__).resolve().parent
 sys.path.append(str(ROOT))
-
+1
 from config import MarketConfig, SUPPORTED_MARKETS, MARKET_DEFINITIONS
 
 from source.market_downloader import descargar_mercado

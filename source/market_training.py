@@ -150,14 +150,10 @@ def construir_modelos():
             (
                 "modelo",
                 CalibratedClassifierCV(
-                    estimator=LinearSVC(
-                        class_weight="balanced",
-                        random_state=42,
-                        max_iter=6000,
-                    ),
+                    base_estimator=lgbm,
                     method="sigmoid",
-                    cv=3,
-                ),
+                    cv=5
+                )
             ),
         ]
     )

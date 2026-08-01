@@ -17,7 +17,7 @@ from source.market_training import entrenar_mercado
 from source.market_model_manager import actualizar_market_model_manager
 from source.market_scoring import generar_market_scoring
 from source.market_backtester import ejecutar_backtest
-
+from source.market_backtester_walk_forward import ejecutar_backtest as ejecutar_walk_forward_backtest
 
 from source.market_regime_detector_v2 import generar_market_regime
 from source.decision_engine import generar_decision
@@ -25,10 +25,10 @@ from source.portfolio_optimizer import construir_portafolio
 from source.daily_report import generar_daily_report
 
 
-
 def preparar_ranking_v2(mercado):
     print("Ranking V2: no requiere conversión. Se usa ranking_diario.csv estándar.")
     return None
+
 
 def ejecutar_paso(numero, total, descripcion, funcion, mercado):
     print()
@@ -79,12 +79,12 @@ def ejecutar_pipeline(mercado="merval"):
         ("Actualizar Model Manager", actualizar_market_model_manager),
         ("Generar scoring consensus", generar_market_scoring),
         ("Preparar ranking para V2", preparar_ranking_v2),
-        ("Detectar régimen de mercado", lambda m: generar_market_regime(m)),
-        ("Decision Engine", lambda m: generar_decision(m)),
-        ("Portfolio Optimizer", lambda m: construir_portafolio(m)),
-        ("Market Backtester", lambda m: ejecutar_backtest(m)),
-        ("Daily Report", lambda m: generar_daily_report(m)),
-
+        ("Detectar régimen de mercado", generar_market_regime),
+        ("Decision Engine", generar_decision),
+        ("Portfolio Optimizer", construir_portafolio),
+        ("Market Backtester", ejecutar_backtest),
+        ("Walk Forward Backtester", ejecutar_walk_forward_backtest),
+        ("Daily Report", generar_daily_report),
     ]
 
     resultados = []
