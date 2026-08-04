@@ -65,7 +65,7 @@ def main():
     print("            PIPELINE MAESTRO - MARKET AI PREDICTION")
     print("="*80)
     filtered_markets = [x for x in MARKETS if '-'+x not in sys.argv]
-    filtered_markets = [x for x in MARKETS if x  in sys.argv]
+    filtered_markets = [x for x in filtered_markets if x  in sys.argv]
 
     for mercado in MARKETS:
         r = ejecutar_mercado(mercado)

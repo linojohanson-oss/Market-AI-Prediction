@@ -1,0 +1,24 @@
+{
+  "app": {
+    "name": "Market-AI-Prediction",
+    "default_market": "merval",
+    "timezone": "UTC"
+  },
+  "paths": {
+    "datos": "datos",
+    "modelos": "modelos",
+    "reportes": "reportes",
+    "logs": "logs"
+  },
+  "pipeline": {
+    "target_principal": "Target_5d",
+    "target_horizons": [1, 5, 10, 20, 60,120,200],
+    "target_min_return_5d": 0.01,
+    "min_rows_per_ticker": 200,
+    "fillna_model_features": 0
+  },
+  "training": {
+    "random_state": 42,
+    "test_size": 0.2
+  }
+}
