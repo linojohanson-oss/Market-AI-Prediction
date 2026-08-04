@@ -8,10 +8,12 @@ sys.path.append(str(ROOT))
 import pandas as pd
 import numpy as np
 
-from config import MarketConfig
+from config import MarketConfig, get_json_config_value
 
 
-TARGET_PRINCIPAL = "Target_5d"
+TARGET_PRINCIPAL = get_json_config_value("pipeline.target_principal", "Target_5d")
+MIN_ROWS_PER_TICKER = get_json_config_value("pipeline.min_rows_per_ticker", 200)
+FILLNA_MODEL_FEATURES = get_json_config_value("pipeline.fillna_model_features", 0)
 
 
 def generar_dataset_ia(nombre_mercado="merval"):
@@ -76,7 +78,7 @@ def generar_dataset_ia(nombre_mercado="merval"):
     dataset = (
         dataset
         .groupby("Ticker", group_keys=False)
-        .apply(lambda x: x.iloc[200:].copy())
+        .apply(lambda x: x.iloc[MIN_ROWS_PER_TICKER:].copy())
         .reset_index(drop=True)
     )
 
@@ -85,7 +87,7 @@ def generar_dataset_ia(nombre_mercado="merval"):
         if col in dataset.columns:
             dataset[col] = pd.to_numeric(dataset[col], errors="coerce")
 
-    dataset[columnas_modelo] = dataset[columnas_modelo].fillna(0)
+    dataset[columnas_modelo] = dataset[columnas_modelo].fillna(FILLNA_MODEL_FEATURES)
 
     dataset.rename(columns={TARGET_PRINCIPAL: "Objetivo_5d"}, inplace=True)
 

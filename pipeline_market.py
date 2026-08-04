@@ -28,13 +28,13 @@ def ejecutar_paso(numero, total, descripcion, funcion, mercado):
     try:
         resultado = funcion(mercado)
         print()
-        print(f"✅ {descripcion} finalizado correctamente")
+        print(f"[OK] {descripcion} finalizado correctamente")
         print(f"Tiempo paso: {datetime.now() - inicio}")
         return True, resultado
 
     except Exception as e:
         print()
-        print(f"❌ Error en: {descripcion}")
+        print(f"[ERROR] Error en: {descripcion}")
         print("-" * 80)
         print(str(e))
         print()
@@ -97,10 +97,10 @@ def ejecutar_pipeline(mercado="merval"):
 
     if exitos == total:
         print()
-        print("✅ PIPELINE FINALIZADO CORRECTAMENTE")
+        print("[OK] PIPELINE FINALIZADO CORRECTAMENTE")
     else:
         print()
-        print("❌ PIPELINE INTERRUMPIDO POR ERROR")
+        print("[ERROR] PIPELINE INTERRUMPIDO POR ERROR")
 
     print("=" * 80)
 

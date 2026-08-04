@@ -177,20 +177,50 @@ class MarketModelManager:
         return joblib.load(archivo)
 
     def cargar_features(self):
-        archivo = Path(self.info_activa["archivo_features"])
+        archivo = Path(self.info_activa.get("archivo_features", ""))
 
-        if not archivo.exists():
-            raise FileNotFoundError(f"No existe archivo features: {archivo}")
+        if archivo.exists():
+            features_path = archivo
+        else:
+            feature_files = sorted(
+                self.market.trained_models_dir.glob("features*.pkl")
+            )
 
-        return joblib.load(archivo)
+            if not feature_files:
+                raise FileNotFoundError(
+                    f"No existe archivo features en {self.market.trained_models_dir}. "
+                    f"Primero ejecutá market_training.py"
+                )
+
+            features_path = feature_files[-1]
+
+        if not features_path.exists():
+            raise FileNotFoundError(f"No existe archivo features: {features_path}")
+
+        return joblib.load(features_path)
 
     def cargar_dataset(self):
-        archivo = Path(self.info_activa["archivo_dataset"])
+        archivo = Path(self.info_activa.get("archivo_dataset", ""))
 
-        if not archivo.exists():
-            raise FileNotFoundError(f"No existe dataset: {archivo}")
+        if archivo.exists():
+            dataset_path = archivo
+        else:
+            dataset_files = sorted(
+                self.market.processed_dir.glob(f"{self.market.market.upper()}_DATASET_IA*.csv")
+            )
 
-        df = pd.read_csv(archivo)
+            if not dataset_files:
+                raise FileNotFoundError(
+                    f"No existe dataset en {self.market.processed_dir}. "
+                    f"Primero ejecutá market_dataset.py"
+                )
+
+            dataset_path = dataset_files[-1]
+
+        if not dataset_path.exists():
+            raise FileNotFoundError(f"No existe dataset: {dataset_path}")
+
+        df = pd.read_csv(dataset_path)
         df["Date"] = pd.to_datetime(df["Date"])
 
         return df

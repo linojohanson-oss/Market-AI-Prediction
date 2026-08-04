@@ -46,13 +46,25 @@ OBJETIVO = "Objetivo_5d"
 
 
 def cargar_dataset(market):
-    if not market.dataset_csv.exists():
+    dataset_files = sorted(
+        market.processed_dir.glob(f"{market.market.upper()}_DATASET_IA*.csv")
+    )
+
+    if not dataset_files:
         raise FileNotFoundError(
-            f"No existe dataset IA: {market.dataset_csv}. "
+            f"No existe dataset IA en {market.processed_dir}. "
             f"Primero ejecutá market_dataset.py"
         )
 
-    df = pd.read_csv(market.dataset_csv)
+    dataset_path = dataset_files[-1]
+
+    if not dataset_path.exists():
+        raise FileNotFoundError(
+            f"No existe dataset IA: {dataset_path}. "
+            f"Primero ejecutá market_dataset.py"
+        )
+
+    df = pd.read_csv(dataset_path)
     df["Date"] = pd.to_datetime(df["Date"])
 
     return df
@@ -150,9 +162,9 @@ def construir_modelos():
             (
                 "modelo",
                 CalibratedClassifierCV(
-                    base_estimator=lgbm,
+                    estimator=lgbm,
                     method="sigmoid",
-                    cv=5
+                    cv=5,
                 )
             ),
         ]

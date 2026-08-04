@@ -1,6 +1,8 @@
 from pathlib import Path
+from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Dict, List
+import json
 
 
 # ============================================================
@@ -8,6 +10,8 @@ from typing import Dict, List
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
+
+JSON_CONFIG_FILE = BASE_DIR / "app_config.json"
 
 DATOS_BASE = BASE_DIR / "datos"
 MODELOS_BASE = BASE_DIR / "modelos"
@@ -18,6 +22,87 @@ BACKUPS = BASE_DIR / "backups"
 MARKETS_DIR = BASE_DIR / "markets"
 SOURCE_DIR = BASE_DIR / "source"
 TESTS_DIR = BASE_DIR / "tests"
+
+
+DEFAULT_JSON_CONFIG = {
+    "app": {
+        "name": "Market-AI-Prediction",
+        "default_market": "merval",
+        "timezone": "UTC",
+    },
+    "paths": {
+        "datos": "datos",
+        "modelos": "modelos",
+        "reportes": "reportes",
+        "logs": "logs",
+    },
+    "pipeline": {
+        "target_principal": "Target_5d",
+        "target_horizons": [1, 5, 10, 20, 60],
+        "target_min_return_5d": 0.0,
+        "min_rows_per_ticker": 200,
+        "fillna_model_features": 0,
+    },
+    "training": {
+        "random_state": 42,
+        "test_size": 0.2,
+    },
+}
+
+_JSON_CONFIG_CACHE = None
+
+
+def _merge_dicts(base, override):
+    """Merge dictionaries recursively, preserving defaults when keys are missing."""
+    merged = dict(base)
+
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _merge_dicts(merged[key], value)
+        else:
+            merged[key] = value
+
+    return merged
+
+
+def ensure_json_config_exists():
+    """Create app_config.json with defaults if it does not exist."""
+    if JSON_CONFIG_FILE.exists():
+        return JSON_CONFIG_FILE
+
+    with JSON_CONFIG_FILE.open("w", encoding="utf-8") as f:
+        json.dump(DEFAULT_JSON_CONFIG, f, indent=2, ensure_ascii=False)
+
+    return JSON_CONFIG_FILE
+
+
+def load_json_config(refresh=False):
+    """Load project JSON config once and keep it cached for module reuse."""
+    global _JSON_CONFIG_CACHE
+
+    if _JSON_CONFIG_CACHE is not None and not refresh:
+        return _JSON_CONFIG_CACHE
+
+    ensure_json_config_exists()
+
+    with JSON_CONFIG_FILE.open("r", encoding="utf-8") as f:
+        user_config = json.load(f)
+
+    _JSON_CONFIG_CACHE = _merge_dicts(DEFAULT_JSON_CONFIG, user_config)
+    return _JSON_CONFIG_CACHE
+
+
+def get_json_config_value(path, default=None):
+    """Read configuration value by dotted path. Example: pipeline.target_principal"""
+    config = load_json_config()
+    current = config
+
+    for part in path.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return default
+        current = current[part]
+
+    return current
 
 
 # ============================================================
@@ -119,6 +204,16 @@ MARKET_DEFINITIONS = {
             "AVAX-USD": "Avalanche",
             "LINK-USD": "Chainlink",
             "DOT-USD": "Polkadot",
+            "XLM-USD": "Stellar",
+            "LTC-USD": "Litecoin",
+            "SHIB-USD": "Shiba Inu",
+            "SUI-USD": "Sui",
+            "AAVE-USD": "Aave",
+            "ALGO-USD": "Algorand",
+            "TRUMP-USD": "Official Trump",
+            "SUSHI-USD": "SushiSwap",
+            "LPT-USD": "Livepeer",
+            "ATOM-USD": "Cosmos",
         },
         "sectors": {
             "BTC-USD": "Reserva de valor",
@@ -131,6 +226,16 @@ MARKET_DEFINITIONS = {
             "AVAX-USD": "Smart Contracts",
             "LINK-USD": "Oráculos",
             "DOT-USD": "Interoperabilidad",
+            "XLM-USD": "Pagos / Infraestructura",
+            "LTC-USD": "Moneda digital / Store of value",
+            "SHIB-USD": "Meme / Comunidad",
+            "SUI-USD": "Smart Contracts / Layer 1",
+            "AAVE-USD": "DeFi",
+            "ALGO-USD": "Layer 1 / Smart Contracts",
+            "TRUMP-USD": "Meme / Comunidad",
+            "SUSHI-USD": "DeFi",
+            "LPT-USD": "Streaming / Infraestructura",
+            "ATOM-USD": "Interoperabilidad / Cosmos",
         },
     },
 
@@ -316,6 +421,7 @@ class MarketConfig:
     market: str
     version: str = "1.0"
     definition: Dict = field(init=False)
+    execution_timestamp: str = field(default_factory=lambda: datetime.now().strftime("%Y%m%d_%H%M%S"))
 
     def __post_init__(self):
         market = self.market.lower().strip()
@@ -447,6 +553,9 @@ class MarketConfig:
     # Archivos estándar
     # -------------------------
 
+    def _output_path(self, directory, name, extension):
+        return directory / f"{name}_{self.execution_timestamp}{extension}"
+
     @property
     def full_raw_csv(self):
         return self.raw_dir / f"{self.market.upper()}_COMPLETO.csv"
@@ -457,99 +566,99 @@ class MarketConfig:
 
     @property
     def indicators_csv(self):
-        return self.processed_dir / f"{self.market.upper()}_INDICADORES.csv"
+        return self._output_path(self.processed_dir, f"{self.market.upper()}_INDICADORES", ".csv")
 
     @property
     def indicators_excel(self):
-        return self.processed_dir / f"{self.market.upper()}_INDICADORES.xlsx"
+        return self._output_path(self.processed_dir, f"{self.market.upper()}_INDICADORES", ".xlsx")
 
     @property
     def dataset_csv(self):
-        return self.processed_dir / f"{self.market.upper()}_DATASET_IA.csv"
+        return self._output_path(self.processed_dir, f"{self.market.upper()}_DATASET_IA", ".csv")
 
     @property
     def dataset_excel(self):
-        return self.processed_dir / f"{self.market.upper()}_DATASET_IA.xlsx"
+        return self._output_path(self.processed_dir, f"{self.market.upper()}_DATASET_IA", ".xlsx")
 
     @property
     def dataset_macro_csv(self):
-        return self.processed_dir / f"{self.market.upper()}_DATASET_IA_MACRO.csv"
+        return self._output_path(self.processed_dir, f"{self.market.upper()}_DATASET_IA_MACRO", ".csv")
 
     @property
     def dataset_macro_excel(self):
-        return self.processed_dir / f"{self.market.upper()}_DATASET_IA_MACRO.xlsx"
+        return self._output_path(self.processed_dir, f"{self.market.upper()}_DATASET_IA_MACRO", ".xlsx")
 
     @property
     def dataset_features_csv(self):
-        return self.processed_dir / f"{self.market.upper()}_DATASET_FEATURES_AVANZADAS.csv"
+        return self._output_path(self.processed_dir, f"{self.market.upper()}_DATASET_FEATURES_AVANZADAS", ".csv")
 
     @property
     def dataset_features_excel(self):
-        return self.processed_dir / f"{self.market.upper()}_DATASET_FEATURES_AVANZADAS.xlsx"
+        return self._output_path(self.processed_dir, f"{self.market.upper()}_DATASET_FEATURES_AVANZADAS", ".xlsx")
 
     @property
     def ranking_csv(self):
-        return self.report_dir / "ranking_diario.csv"
+        return self._output_path(self.report_dir, "ranking_diario", ".csv")
 
     @property
     def ranking_excel(self):
-        return self.report_dir / "ranking_diario.xlsx"
+        return self._output_path(self.report_dir, "ranking_diario", ".xlsx")
 
     @property
     def predictions_csv(self):
-        return self.report_dir / "predicciones_futuras.csv"
+        return self._output_path(self.report_dir, "predicciones_futuras", ".csv")
 
     @property
     def predictions_excel(self):
-        return self.report_dir / "predicciones_futuras.xlsx"
+        return self._output_path(self.report_dir, "predicciones_futuras", ".xlsx")
 
     @property
     def decision_engine_csv(self):
-        return self.report_dir / "decision_engine.csv"
+        return self._output_path(self.report_dir, "decision_engine", ".csv")
 
     @property
     def decision_engine_excel(self):
-        return self.report_dir / "decision_engine.xlsx"
+        return self._output_path(self.report_dir, "decision_engine", ".xlsx")
 
     @property
     def investor_report_txt(self):
-        return self.report_dir / "informe_inversor.txt"
+        return self._output_path(self.report_dir, "informe_inversor", ".txt")
 
     @property
     def investor_report_md(self):
-        return self.report_dir / "informe_inversor.md"
+        return self._output_path(self.report_dir, "informe_inversor", ".md")
 
     @property
     def backtesting_excel(self):
-        return self.report_dir / "backtesting.xlsx"
+        return self._output_path(self.report_dir, "backtesting", ".xlsx")
 
     @property
     def model_active_json(self):
-        return self.report_dir / "modelo_activo.json"
+        return self._output_path(self.report_dir, "modelo_activo", ".json")
 
     @property
     def ensemble_json(self):
-        return self.report_dir / "modelos_ensemble.json"
+        return self._output_path(self.report_dir, "modelos_ensemble", ".json")
 
     @property
     def ranking_models_csv(self):
-        return self.report_dir / "ranking_modelos.csv"
+        return self._output_path(self.report_dir, "ranking_modelos", ".csv")
 
     @property
     def ranking_models_excel(self):
-        return self.report_dir / "ranking_modelos.xlsx"
+        return self._output_path(self.report_dir, "ranking_modelos", ".xlsx")
 
     @property
     def features_pkl(self):
-        return self.trained_models_dir / "features.pkl"
+        return self._output_path(self.trained_models_dir, "features", ".pkl")
 
     @property
     def features_macro_pkl(self):
-        return self.trained_models_dir / "features_macro.pkl"
+        return self._output_path(self.trained_models_dir, "features_macro", ".pkl")
 
     @property
     def features_advanced_pkl(self):
-        return self.trained_models_dir / "features_avanzadas.pkl"
+        return self._output_path(self.trained_models_dir, "features_avanzadas", ".pkl")
 
     # -------------------------
     # Métodos
@@ -612,7 +721,7 @@ class MarketConfig:
 # MERCADO ACTIVO POR DEFECTO
 # ============================================================
 
-DEFAULT_MARKET = "merval"
+DEFAULT_MARKET = get_json_config_value("app.default_market", "merval")
 ACTIVE_MARKET = MarketConfig(DEFAULT_MARKET)
 
 

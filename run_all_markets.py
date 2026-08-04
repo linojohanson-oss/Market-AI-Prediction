@@ -2,21 +2,28 @@ import subprocess
 import json
 import os
 from datetime import datetime
+import sys
 
-PROJECT_PATH = r"C:\Users\feder\OneDrive\Desktop\OneDrive\PycharmProjects\Market-AI-Prediction"
+PROJECT_PATH = r"."
 MARKET_PIPELINE = os.path.join(PROJECT_PATH, "pipeline_market.py")
 
+# MARKETS = [
+#     "merval",
+#     "crypto",
+#     "nasdaq",
+#     "etf",
+#     "commodities",
+#     "forex",
+#     "bonos",
+#     "indices"
+# ]
 MARKETS = [
     "merval",
     "crypto",
     "nasdaq",
     "etf",
-    "commodities",
-    "forex",
-    "bonos",
-    "indices"
+    "bonos"
 ]
-
 BASE_PATH = os.path.join(PROJECT_PATH, "reportes")
 LOG_GLOBAL = os.path.join(BASE_PATH, "pipeline_maestro_salida.txt")
 JSON_GLOBAL = os.path.join(BASE_PATH, "pipeline_maestro.json")
@@ -57,10 +64,13 @@ def main():
     print("\n" + "="*80)
     print("            PIPELINE MAESTRO - MARKET AI PREDICTION")
     print("="*80)
+    filtered_markets = [x for x in MARKETS if '-'+x not in sys.argv]
+    filtered_markets = [x for x in MARKETS if x  in sys.argv]
 
     for mercado in MARKETS:
         r = ejecutar_mercado(mercado)
         resultados.append(r)
+        
 
     guardar_json_global(resultados)
     print("\nGenerando reporte PDF con gráficos...")
@@ -72,4 +82,5 @@ def main():
 
 
 if __name__ == "__main__":
+    
     main()

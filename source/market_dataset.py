@@ -11,10 +11,35 @@ warnings.filterwarnings("ignore")
 import pandas as pd
 import numpy as np
 
-from config import MarketConfig
+from config import MarketConfig, get_json_config_value
 
 
-TARGET_PRINCIPAL = "Target_5d"
+TARGET_PRINCIPAL = get_json_config_value("pipeline.target_principal", "Target_5d")
+TARGET_HORIZONS = get_json_config_value("pipeline.target_horizons", [1, 5, 10, 20, 60])
+MIN_ROWS_PER_TICKER = get_json_config_value("pipeline.min_rows_per_ticker", 200)
+FILLNA_MODEL_FEATURES = get_json_config_value("pipeline.fillna_model_features", 0)
+
+
+def resolver_columna(df, posibles):
+    for col in posibles:
+        if col in df.columns:
+            return col
+    return None
+
+
+def normalizar_columnas_dataset(df):
+    df = df.copy()
+
+    col_ticker = resolver_columna(df, ["Ticker", "ticker", "Symbol", "symbol"])
+    col_fecha = resolver_columna(df, ["Date", "date", "Fecha", "fecha", "Datetime", "datetime"])
+
+    if col_ticker is not None and col_ticker != "Ticker":
+        df.rename(columns={col_ticker: "Ticker"}, inplace=True)
+
+    if col_fecha is not None and col_fecha != "Date":
+        df.rename(columns={col_fecha: "Date"}, inplace=True)
+
+    return df
 
 
 def archivo_contexto(market):
@@ -22,14 +47,35 @@ def archivo_contexto(market):
 
 
 def cargar_indicadores(market):
-    if not market.indicators_csv.exists():
+    indicadores_files = sorted(
+        market.processed_dir.glob(f"{market.market.upper()}_INDICADORES*.csv")
+    )
+
+    if not indicadores_files:
         raise FileNotFoundError(
-            f"No existe archivo de indicadores: {market.indicators_csv}. "
+            f"No existe archivo de indicadores en {market.processed_dir}. "
             f"Primero ejecutá market_indicators.py"
         )
 
-    df = pd.read_csv(market.indicators_csv)
-    df["Date"] = pd.to_datetime(df["Date"])
+    indicadores_path = indicadores_files[-1]
+
+    if not indicadores_path.exists():
+        raise FileNotFoundError(
+            f"No existe archivo de indicadores: {indicadores_path}. "
+            f"Primero ejecutá market_indicators.py"
+        )
+
+    df = pd.read_csv(indicadores_path)
+    df = normalizar_columnas_dataset(df)
+
+    if "Date" not in df.columns:
+        raise ValueError(f"No encontré columna de fecha en {indicadores_path}")
+
+    if "Ticker" not in df.columns:
+        raise ValueError(f"No encontré columna de ticker en {indicadores_path}")
+
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    df = df.dropna(subset=["Date"]).copy()
 
     return df
 
@@ -73,22 +119,16 @@ def integrar_contexto(df, contexto):
 
 
 def limpiar_targets_futuros(df):
-    columnas_excluir = [
-        "Future_Close_1d",
-        "Future_Return_1d",
-        "Target_1d",
-        "Future_Close_5d",
-        "Future_Return_5d",
-        "Future_Close_10d",
-        "Future_Return_10d",
-        "Target_10d",
-        "Future_Close_20d",
-        "Future_Return_20d",
-        "Target_20d",
-        "Future_Close_60d",
-        "Future_Return_60d",
-        "Target_60d",
-    ]
+    columnas_excluir = []
+
+    for horizon in TARGET_HORIZONS:
+        if horizon == 5:
+            continue
+        columnas_excluir.extend([
+            f"Future_Close_{horizon}d",
+            f"Future_Return_{horizon}d",
+            f"Target_{horizon}d",
+        ])
 
     columnas_excluir = [c for c in columnas_excluir if c in df.columns]
 
@@ -146,18 +186,23 @@ def generar_dataset_ia(nombre_mercado="merval"):
     dataset.replace([np.inf, -np.inf], np.nan, inplace=True)
     dataset = dataset.dropna(subset=["Objetivo_5d"])
 
-    dataset = (
-        dataset
-        .groupby("Ticker", group_keys=False)
-        .apply(lambda x: x.iloc[200:].copy())
-        .reset_index(drop=True)
-    )
+    frames = []
+    for ticker, grupo in dataset.groupby("Ticker", sort=False):
+        if len(grupo) > MIN_ROWS_PER_TICKER:
+            frames.append(grupo.iloc[MIN_ROWS_PER_TICKER:].copy())
+        else:
+            frames.append(grupo.copy())
+
+    if frames:
+        dataset = pd.concat(frames, ignore_index=True)
+    else:
+        dataset = dataset.copy()
 
     for col in columnas_modelo:
         if col in dataset.columns:
             dataset[col] = pd.to_numeric(dataset[col], errors="coerce")
 
-    dataset[columnas_modelo] = dataset[columnas_modelo].fillna(0)
+    dataset[columnas_modelo] = dataset[columnas_modelo].fillna(FILLNA_MODEL_FEATURES)
 
     dataset.sort_values(["Ticker", "Date"], inplace=True)
 

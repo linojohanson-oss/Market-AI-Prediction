@@ -8,3 +8,4 @@ yfinance
 openpyxl
 requests
 scipy
+lightgbm
