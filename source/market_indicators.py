@@ -3,16 +3,21 @@ from pathlib import Path
 from datetime import datetime
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT))
+
+from source.app_logger import log_print as print
 
 import pandas as pd
 import numpy as np
+from pandas.api.types import is_datetime64tz_dtype
 
 from config import MarketConfig, get_json_config_value
+from source.market_sqlite_cache import MarketSQLiteCache
 
 
 TARGETS = get_json_config_value("pipeline.target_horizons", [1, 5, 10, 20, 60])
 TARGET_5D_MIN_RETURN = get_json_config_value("pipeline.target_min_return_5d", 0.0)
+SQLITE_INCREMENTAL_CACHE = bool(get_json_config_value("pipeline.sqlite_incremental_cache_enabled", True))
+INDICATORS_RECALC_LOOKBACK_BARS = int(get_json_config_value("pipeline.indicators_recalc_lookback_bars", 320))
 
 
 def resolver_columna(df, posibles):
@@ -47,6 +52,16 @@ def calcular_rsi(close, window=14):
     rsi = 100 - (100 / (1 + rs))
 
     return rsi
+
+
+def quitar_timezone_para_excel(df):
+    df = df.copy()
+
+    for col in df.columns:
+        if is_datetime64tz_dtype(df[col]):
+            df[col] = df[col].dt.tz_localize(None)
+
+    return df
 
 
 def calcular_atr(df, window=14):
@@ -429,6 +444,23 @@ def calcular_indicadores_activo(df):
     return df
 
 
+def recorte_recalculo(df_ticker, last_cached_date, lookback_bars):
+    if last_cached_date is None:
+        return df_ticker.copy(), "full"
+
+    if df_ticker.empty:
+        return df_ticker.copy(), "empty"
+
+    fechas = pd.to_datetime(df_ticker["Date"], errors="coerce").reset_index(drop=True)
+    idx = fechas.searchsorted(last_cached_date, side="right") - 1
+
+    if idx < 0:
+        return df_ticker.copy(), "full"
+
+    start = max(0, idx - lookback_bars)
+    return df_ticker.iloc[start:].copy(), f"tail-{len(df_ticker) - start}"
+
+
 def generar_indicadores(nombre_mercado="merval"):
     inicio = datetime.now()
     market = MarketConfig(nombre_mercado)
@@ -461,17 +493,56 @@ def generar_indicadores(nombre_mercado="merval"):
     print(f"Activos        : {df['Ticker'].nunique()}")
 
     resultados = []
+    cache = None
+
+    if SQLITE_INCREMENTAL_CACHE:
+        cache_db = market.cache_dir / f"{market.market}_cache.sqlite"
+        cache = MarketSQLiteCache(cache_db)
+        print(f"Cache SQLite    : {cache_db}")
+        print(f"Recalc lookback : {INDICATORS_RECALC_LOOKBACK_BARS} barras")
 
     for ticker, df_ticker in df.groupby("Ticker"):
-        print(f"Procesando {ticker}...")
-        procesado = calcular_indicadores_activo(df_ticker)
-        resultados.append(procesado)
+        df_ticker = df_ticker.sort_values("Date").reset_index(drop=True)
 
-    base = pd.concat(resultados, ignore_index=True)
+        if cache is None:
+            print(f"Procesando {ticker}...")
+            procesado = calcular_indicadores_activo(df_ticker)
+            resultados.append(procesado)
+            continue
+
+        last_cached = cache.get_indicator_max_date(market.market, market.interval, ticker)
+        df_slice, modo = recorte_recalculo(df_ticker, last_cached, INDICATORS_RECALC_LOOKBACK_BARS)
+
+        if df_slice.empty:
+            print(f"Procesando {ticker}... sin datos para recalcular")
+            continue
+
+        print(f"Procesando {ticker}... {modo}")
+        procesado = calcular_indicadores_activo(df_slice)
+        upserted = cache.upsert_indicator_rows(market.market, market.interval, ticker, procesado)
+        print(f"  cache upsert rows: {upserted}")
+
+    if cache is None:
+        base = pd.concat(resultados, ignore_index=True)
+    else:
+        base = cache.load_indicators_market(market.market, market.interval)
+
+    if base.empty:
+        raise RuntimeError("No hay indicadores disponibles luego del procesamiento/caché.")
+
     base.sort_values(["Ticker", "Date"], inplace=True)
+    base_excel = quitar_timezone_para_excel(base)
 
+    print()
+    print("Guardando CSV de indicadores...")
+    t_save_csv = datetime.now()
     base.to_csv(market.indicators_csv, index=False, encoding="utf-8-sig")
-    base.to_excel(market.indicators_excel, index=False)
+    print(f"CSV guardado en {datetime.now() - t_save_csv}: {market.indicators_csv}")
+
+    print("Guardando Excel de indicadores...")
+    t_save_xlsx = datetime.now()
+    base_excel.to_excel(market.indicators_excel, index=False)
+    print(f"Excel guardado en {datetime.now() - t_save_xlsx}: {market.indicators_excel}")
 
     columnas_indicadores = [
         c for c in base.columns

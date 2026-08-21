@@ -3,6 +3,8 @@ from pathlib import Path
 from datetime import datetime
 import pandas as pd
 
+from source.app_logger import log_print as print
+
 ROOT = Path(__file__).resolve().parent.parent
 
 

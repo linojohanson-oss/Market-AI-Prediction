@@ -2,6 +2,8 @@ import os
 import pandas as pd
 import json
 
+from source.app_logger import log_print as print
+
 BASE_PATH = r"C:\Users\feder\OneDrive\Desktop\OneDrive\PycharmProjects\Market-AI-Prediction\reportes"
 
 MERCADOS = {

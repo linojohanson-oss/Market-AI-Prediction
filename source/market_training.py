@@ -4,7 +4,8 @@ from datetime import datetime
 import warnings
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT))
+
+from source.app_logger import log_print as print
 
 warnings.filterwarnings("ignore")
 
@@ -43,6 +44,7 @@ from config import MarketConfig
 
 
 OBJETIVO = "Objetivo_5d"
+SAFE_N_JOBS = 1
 
 
 def cargar_dataset(market):
@@ -105,7 +107,7 @@ def construir_modelos():
         max_depth=14,
         min_samples_leaf=8,
         random_state=42,
-        n_jobs=-1,
+        n_jobs=SAFE_N_JOBS,
         class_weight="balanced",
     )
 
@@ -114,7 +116,7 @@ def construir_modelos():
         max_depth=14,
         min_samples_leaf=8,
         random_state=42,
-        n_jobs=-1,
+        n_jobs=SAFE_N_JOBS,
         class_weight="balanced",
     )
 
@@ -126,7 +128,7 @@ def construir_modelos():
         colsample_bytree=0.85,
         eval_metric="logloss",
         random_state=42,
-        n_jobs=-1,
+        n_jobs=SAFE_N_JOBS,
     )
 
     lgbm = LGBMClassifier(
@@ -136,7 +138,7 @@ def construir_modelos():
         subsample=0.85,
         colsample_bytree=0.85,
         random_state=42,
-        n_jobs=-1,
+        n_jobs=SAFE_N_JOBS,
         class_weight="balanced",
         verbose=-1,
     )
@@ -149,7 +151,7 @@ def construir_modelos():
                 LogisticRegression(
                     max_iter=2500,
                     class_weight="balanced",
-                    n_jobs=-1,
+                    n_jobs=SAFE_N_JOBS,
                     random_state=42,
                 ),
             ),
@@ -217,7 +219,7 @@ def construir_modelos():
                 random_state=42,
             ),
             stack_method="predict_proba",
-            n_jobs=-1,
+            n_jobs=SAFE_N_JOBS,
             cv=3,
         ),
     }

@@ -5,7 +5,8 @@ from datetime import datetime
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT))
+
+from source.app_logger import log_print as print
 
 from config import MarketConfig
 

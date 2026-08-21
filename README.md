@@ -270,6 +270,31 @@ The platform has been developed following these principles:
 
 ---
 
+# SQLite Cache Template
+
+The repository includes a versioned, data-free SQLite schema template so cache databases can be recreated anytime without committing heavy data files.
+
+- Schema template: `docs/sql/market_cache_schema.sql`
+- Initialization script: `source/init_sqlite_cache.py`
+
+Example usage:
+
+```bash
+py source/init_sqlite_cache.py crypto
+```
+
+This creates or updates the schema at:
+
+`datos/<market>/cache/<market>_cache.sqlite`
+
+You can also target a custom path:
+
+```bash
+py source/init_sqlite_cache.py crypto --db-path H:/tmp/crypto_cache.sqlite
+```
+
+---
+
 # Disclaimer
 
 This software has been developed exclusively for educational and research purposes.

@@ -4,7 +4,8 @@ from datetime import datetime
 import json
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT))
+
+from source.app_logger import log_print as print
 
 import pandas as pd
 import joblib

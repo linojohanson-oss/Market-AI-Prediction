@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "Market-AI-Prediction",
-    "default_market": "merval",
+    "default_market": "crypto",
     "timezone": "UTC"
   },
   "paths": {
@@ -12,13 +12,105 @@
   },
   "pipeline": {
     "target_principal": "Target_5d",
-    "target_horizons": [1, 5, 10, 20, 60,120,200],
+    "target_horizons": [
+      1,
+      5,
+      10,
+      20,
+      60,
+      120,
+      200
+    ],
     "target_min_return_5d": 0.01,
     "min_rows_per_ticker": 200,
-    "fillna_model_features": 0
+    "fillna_model_features": 0,
+    "enable_optimization": true,
+    "publish_stable_ranking": true,
+    "sqlite_incremental_cache_enabled": true,
+    "indicators_recalc_lookback_bars": 320,
+    "context_recalc_lookback_bars": 320
   },
   "training": {
     "random_state": 42,
     "test_size": 0.2
+  },
+  "logging": {
+    "level": "INFO",
+    "info_verbosity": 3
+  },
+  "portfolio": {
+    "neutral_score": 50.0,
+    "alpha_per_score_point_pct": 0.03,
+    "min_edge_buffer_pct": 0.2,
+    "min_trade_value": 150.0,
+    "markets": {
+      "crypto": {
+        "capital_inicial": 475.0,
+        "costs": {
+          "buy_fee_pct": 0.1,
+          "sell_fee_pct": 0.1,
+          "slippage_pct": 0.05,
+          "tax_sell_pct": 0.0,
+          "fixed_cost_per_trade": 0.0
+        },
+        "current_positions": {
+          "cash": 187.0,
+          "positions": [
+            {
+              "ticker": "LINK-USDT",
+              "quantity": 14.33,
+              "avg_price": 8.718
+            },
+            {
+              "ticker": "BNB-USDT",
+              "quantity": 0.245,
+              "avg_price": 611
+            }
+          ]
+        }
+      },
+      "etf": {
+        "capital_inicial": 10000.0,
+        "costs": {
+          "buy_fee_pct": 0.1,
+          "sell_fee_pct": 0.1,
+          "slippage_pct": 0.03,
+          "tax_sell_pct": 0.0,
+          "fixed_cost_per_trade": 0.0
+        },
+        "current_positions": {
+          "cash": 10000.0,
+          "positions": []
+        }
+      },
+      "nasdaq": {
+        "capital_inicial": 15000.0,
+        "costs": {
+          "buy_fee_pct": 0.1,
+          "sell_fee_pct": 0.1,
+          "slippage_pct": 0.03,
+          "tax_sell_pct": 0.0,
+          "fixed_cost_per_trade": 0.0
+        },
+        "current_positions": {
+          "cash": 15000.0,
+          "positions": []
+        }
+      },
+      "merval": {
+        "capital_inicial": 3000000.0,
+        "costs": {
+          "buy_fee_pct": 0.6,
+          "sell_fee_pct": 0.6,
+          "slippage_pct": 0.15,
+          "tax_sell_pct": 0.0,
+          "fixed_cost_per_trade": 0.0
+        },
+        "current_positions": {
+          "cash": 3000000.0,
+          "positions": []
+        }
+      }
+    }
   }
 }

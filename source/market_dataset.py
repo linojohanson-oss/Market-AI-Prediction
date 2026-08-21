@@ -4,12 +4,14 @@ from datetime import datetime
 import warnings
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT))
+
+from source.app_logger import log_print as print
 
 warnings.filterwarnings("ignore")
 
 import pandas as pd
 import numpy as np
+from pandas.api.types import is_datetime64tz_dtype
 
 from config import MarketConfig, get_json_config_value
 
@@ -38,6 +40,21 @@ def normalizar_columnas_dataset(df):
 
     if col_fecha is not None and col_fecha != "Date":
         df.rename(columns={col_fecha: "Date"}, inplace=True)
+
+    return df
+
+
+def normalizar_fecha_utc_naive(series):
+    fechas = pd.to_datetime(series, errors="coerce", utc=True)
+    return fechas.dt.tz_localize(None)
+
+
+def quitar_timezone_para_excel(df):
+    df = df.copy()
+
+    for col in df.columns:
+        if is_datetime64tz_dtype(df[col]):
+            df[col] = df[col].dt.tz_localize(None)
 
     return df
 
@@ -74,7 +91,7 @@ def cargar_indicadores(market):
     if "Ticker" not in df.columns:
         raise ValueError(f"No encontré columna de ticker en {indicadores_path}")
 
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    df["Date"] = normalizar_fecha_utc_naive(df["Date"])
     df = df.dropna(subset=["Date"]).copy()
 
     return df
@@ -87,9 +104,10 @@ def cargar_contexto(market):
         print(f"ADVERTENCIA: no existe contexto macro: {contexto_csv}")
         print("Se generará dataset solo con indicadores técnicos.")
         return None
-
+    print(f"Archivo Contexto { contexto_csv}")
     contexto = pd.read_csv(contexto_csv)
-    contexto["Date"] = pd.to_datetime(contexto["Date"])
+    contexto["Date"] = normalizar_fecha_utc_naive(contexto["Date"])
+    contexto = contexto.dropna(subset=["Date"]).copy()
 
     contexto.sort_values("Date", inplace=True)
     contexto.drop_duplicates(subset=["Date"], keep="last", inplace=True)
@@ -205,9 +223,18 @@ def generar_dataset_ia(nombre_mercado="merval"):
     dataset[columnas_modelo] = dataset[columnas_modelo].fillna(FILLNA_MODEL_FEATURES)
 
     dataset.sort_values(["Ticker", "Date"], inplace=True)
+    dataset_excel = quitar_timezone_para_excel(dataset)
 
+    print()
+    print("Guardando CSV de dataset IA...")
+    t_save_csv = datetime.now()
     dataset.to_csv(market.dataset_csv, index=False, encoding="utf-8-sig")
-    dataset.to_excel(market.dataset_excel, index=False)
+    print(f"CSV guardado en {datetime.now() - t_save_csv}: {market.dataset_csv}")
+
+    print("Guardando Excel de dataset IA...")
+    t_save_xlsx = datetime.now()
+    dataset_excel.to_excel(market.dataset_excel, index=False)
+    print(f"Excel guardado en {datetime.now() - t_save_xlsx}: {market.dataset_excel}")
 
     objetivo_pct = dataset["Objetivo_5d"].mean()
 

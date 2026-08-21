@@ -3,10 +3,12 @@ from pathlib import Path
 from datetime import datetime
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT))
+
+from source.app_logger import log_print as print
 
 import pandas as pd
 import yfinance as yf
+from pandas.api.types import is_datetime64tz_dtype
 
 from config import MarketConfig
 
@@ -71,6 +73,16 @@ def validar_dataframe(df, ticker):
             return False, f"{ticker}: columna {col} inválida"
 
     return True, "OK"
+
+
+def quitar_timezone_para_excel(df):
+    df = df.copy()
+
+    for col in df.columns:
+        if is_datetime64tz_dtype(df[col]):
+            df[col] = df[col].dt.tz_localize(None)
+
+    return df
 
 
 def descargar_ticker(market, ticker, nombre):
@@ -152,9 +164,10 @@ def descargar_ticker(market, ticker, nombre):
 
         archivo_csv = market.raw_dir / f"{nombre_archivo}.csv"
         archivo_excel = market.raw_dir / f"{nombre_archivo}.xlsx"
+        df_excel = quitar_timezone_para_excel(df)
 
         df.to_csv(archivo_csv, index=False, encoding="utf-8-sig")
-        df.to_excel(archivo_excel, index=False)
+        df_excel.to_excel(archivo_excel, index=False)
 
         return {
             "ticker": ticker,
@@ -187,7 +200,12 @@ def descargar_mercado(nombre_mercado="merval"):
     print(f"Mercado       : {market.market}")
     print(f"Descripción   : {market.description}")
     print(f"Activos       : {len(market.tickers)}")
-    print(f"Periodo       : {market.period}")
+    if market.period_was_adjusted:
+        print(f"Periodo cfg   : {market.configured_period}")
+        print(f"Periodo usado : {market.effective_period}")
+        print(market.period_adjustment_message)
+    else:
+        print(f"Periodo       : {market.period}")
     print(f"Intervalo     : {market.interval}")
     print(f"Fuente        : {market.source}")
     print(f"Destino       : {market.raw_dir}")
@@ -231,8 +249,10 @@ def descargar_mercado(nombre_mercado="merval"):
     base.sort_values(["Ticker", "Date"], inplace=True)
     base.drop_duplicates(subset=["Ticker", "Date"], keep="last", inplace=True)
 
+    base_excel = quitar_timezone_para_excel(base)
+
     base.to_csv(market.full_raw_csv, index=False, encoding="utf-8-sig")
-    base.to_excel(market.full_raw_excel, index=False)
+    base_excel.to_excel(market.full_raw_excel, index=False)
 
     errores = [r for r in resultados if not r["ok"]]
     exitos = [r for r in resultados if r["ok"]]

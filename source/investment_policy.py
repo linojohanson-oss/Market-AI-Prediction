@@ -18,6 +18,8 @@ debe hacerse aquí.
 =========================================================
 """
 
+from source.app_logger import log_print as print
+
 POLITICAS_INVERSION = {
 
     # =====================================================

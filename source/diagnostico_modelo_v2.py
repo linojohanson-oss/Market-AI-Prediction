@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 
+from source.app_logger import log_print as print
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 DATASET_PATH = os.path.join(

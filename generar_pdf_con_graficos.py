@@ -1,13 +1,61 @@
 import os
 import json
+import sys
 import matplotlib.pyplot as plt
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from datetime import datetime
+from pathlib import Path
 
-BASE_PATH = r"C:\Users\feder\OneDrive\Desktop\OneDrive\PycharmProjects\Market-AI-Prediction\reportes"
-JSON_GLOBAL = os.path.join(BASE_PATH, "resumen_global.json")
-LOGO_PATH = r"C:\Users\feder\OneDrive\Desktop\OneDrive\PycharmProjects\Market-AI-Prediction\logo.png"
+BASE_PATH = str(Path(__file__).resolve().parent / "reportes")
+JSON_GLOBAL = os.path.join(BASE_PATH, "pipeline_maestro.json")
+LOGO_PATH = str(Path(__file__).resolve().parent / "logo.png")
+
+
+def _normalizar_senales(senales):
+    base = {
+        "COMPRA_FUERTE": [],
+        "COMPRA": [],
+        "VIGILAR": [],
+        "NEUTRAL": [],
+        "EVITAR": []
+    }
+    if isinstance(senales, dict):
+        for k in base:
+            v = senales.get(k, [])
+            base[k] = v if isinstance(v, list) else []
+    return base
+
+
+def normalizar_resumen(data):
+    """Convierte el JSON global a un dict homogéneo apto para gráficos/PDF."""
+    if isinstance(data, dict):
+        items = list(data.items())
+        normalizado = {}
+        for key, info in items:
+            if not isinstance(info, dict):
+                continue
+            nombre_mercado = str(info.get("mercado", key)).upper()
+            normalizado[str(key)] = {
+                "mercado": nombre_mercado,
+                "señales": _normalizar_senales(info.get("señales", {}))
+            }
+        return normalizado
+
+    if isinstance(data, list):
+        normalizado = {}
+        for i, info in enumerate(data):
+            if not isinstance(info, dict):
+                continue
+            raw_market = str(info.get("mercado", f"mercado_{i + 1}")).strip()
+            key = raw_market.lower() or f"mercado_{i + 1}"
+            normalizado[key] = {
+                "mercado": raw_market.upper(),
+                "señales": _normalizar_senales(info.get("señales", {}))
+            }
+        return normalizado
+
+    return {}
 
 
 # ============================================================
@@ -15,7 +63,7 @@ LOGO_PATH = r"C:\Users\feder\OneDrive\Desktop\OneDrive\PycharmProjects\Market-AI
 # ============================================================
 def cargar_resumen():
     if not os.path.exists(JSON_GLOBAL):
-        print("❌ ERROR: No se encontró resumen_global.json")
+        print(f"❌ ERROR: No se encontró {JSON_GLOBAL}")
         return None
 
     with open(JSON_GLOBAL, "r", encoding="utf-8") as f:
@@ -24,6 +72,8 @@ def cargar_resumen():
         except Exception as e:
             print("❌ ERROR: El JSON está corrupto:", e)
             return None
+
+    data = normalizar_resumen(data)
 
     if not data:
         print("❌ ERROR: El JSON está vacío")
@@ -41,21 +91,26 @@ def generar_grafico_senales(resumen):
     evitar = []
 
     for mercado, info in resumen.items():
-        mercados.append(info["mercado"])
+        mercados.append(info.get("mercado", str(mercado).upper()))
         compras.append(
-            len(info["señales"].get("COMPRA", [])) +
-            len(info["señales"].get("COMPRA_FUERTE", []))
+            len(info.get("señales", {}).get("COMPRA", [])) +
+            len(info.get("señales", {}).get("COMPRA_FUERTE", []))
         )
-        evitar.append(len(info["señales"].get("EVITAR", [])))
+        evitar.append(len(info.get("señales", {}).get("EVITAR", [])))
 
     plt.figure(figsize=(10, 6))
-    plt.bar(mercados, compras, color="green", label="Compras")
-    plt.bar(mercados, evitar, bottom=compras, color="red", label="Evitar")
+    if mercados:
+        plt.bar(mercados, compras, color="green", label="Compras")
+        plt.bar(mercados, evitar, bottom=compras, color="red", label="Evitar")
+        plt.legend()
+    else:
+        plt.text(0.5, 0.5, "Sin datos de señales", ha="center", va="center", fontsize=14)
+        plt.xticks([])
+        plt.yticks([])
 
     plt.title("Señales por Mercado", fontsize=16)
     plt.xlabel("Mercado")
     plt.ylabel("Cantidad de señales")
-    plt.legend()
     plt.tight_layout()
 
     ruta = os.path.join(BASE_PATH, "grafico_senales.png")
@@ -106,18 +161,27 @@ def generar_top10_alfa(resumen):
     lista = []
 
     for mercado, info in resumen.items():
-        for tipo, señales in info["señales"].items():
+        for tipo, señales in info.get("señales", {}).items():
             for s in señales:
-                lista.append((s["ticker"], s["score"]))
+                ticker = s.get("ticker")
+                score = s.get("score")
+                if ticker is None or score is None:
+                    continue
+                lista.append((ticker, score))
 
     lista.sort(key=lambda x: x[1], reverse=True)
     top10 = lista[:10]
 
-    activos = [x[0] for x in top10]
-    scores = [x[1] for x in top10]
-
     plt.figure(figsize=(10, 6))
-    plt.barh(activos, scores, color="#003366")
+    if top10:
+        activos = [x[0] for x in top10]
+        scores = [x[1] for x in top10]
+        plt.barh(activos, scores, color="#003366")
+    else:
+        plt.text(0.5, 0.5, "Sin señales para Top 10", ha="center", va="center", fontsize=14)
+        plt.xticks([])
+        plt.yticks([])
+
     plt.title("Top 10 Alfa Global", fontsize=16, pad=15)
     plt.xlabel("Score Final")
     plt.tight_layout()
@@ -186,10 +250,10 @@ def generar_pdf_pro(resumen, rutas_alfa, ruta_top10, ruta_senales):
     y = height - 120
 
     for mercado, info in resumen.items():
-        compras = len(info["señales"].get("COMPRA", [])) + len(info["señales"].get("COMPRA_FUERTE", []))
-        evitar = len(info["señales"].get("EVITAR", []))
+        compras = len(info.get("señales", {}).get("COMPRA", [])) + len(info.get("señales", {}).get("COMPRA_FUERTE", []))
+        evitar = len(info.get("señales", {}).get("EVITAR", []))
 
-        texto = f"{info['mercado']}: {compras} compras, {evitar} evitar"
+        texto = f"{info.get('mercado', str(mercado).upper())}: {compras} compras, {evitar} evitar"
         c.drawString(50, y, texto)
         y -= 20
 
@@ -233,14 +297,15 @@ def main():
     resumen = cargar_resumen()
     if resumen is None:
         print("❌ No se pudo generar el reporte.")
-        return
+        return 1
 
     ruta_senales = generar_grafico_senales(resumen)
     rutas_alfa = generar_graficos_alfa_por_mercado(resumen)
     ruta_top10 = generar_top10_alfa(resumen)
 
     generar_pdf_pro(resumen, rutas_alfa, ruta_top10, ruta_senales)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

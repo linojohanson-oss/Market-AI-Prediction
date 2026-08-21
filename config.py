@@ -38,14 +38,45 @@ DEFAULT_JSON_CONFIG = {
     },
     "pipeline": {
         "target_principal": "Target_5d",
-        "target_horizons": [1, 5, 10, 20, 60],
-        "target_min_return_5d": 0.0,
+        "target_horizons": [1, 5, 10, 20, 60,120,240],
+        "target_min_return_5d": 0.02,
         "min_rows_per_ticker": 200,
         "fillna_model_features": 0,
+        "enable_optimization": False,
+        "publish_stable_ranking": True,
+        "sqlite_incremental_cache_enabled": True,
+        "indicators_recalc_lookback_bars": 320,
+        "context_recalc_lookback_bars": 320,
     },
     "training": {
         "random_state": 42,
         "test_size": 0.2,
+    },
+    "logging": {
+        "level": "INFO",
+        "info_verbosity": 3,
+    },
+    "portfolio": {
+        "neutral_score": 50.0,
+        "alpha_per_score_point_pct": 0.03,
+        "min_edge_buffer_pct": 0.20,
+        "min_trade_value": 250.0,
+        "markets": {
+            "crypto": {
+                "capital_inicial": 100000.0,
+                "costs": {
+                    "buy_fee_pct": 0.10,
+                    "sell_fee_pct": 0.10,
+                    "slippage_pct": 0.05,
+                    "tax_sell_pct": 0.00,
+                    "fixed_cost_per_trade": 0.0,
+                },
+                "current_positions": {
+                    "cash": 100000.0,
+                    "positions": []
+                }
+            }
+        }
     },
 }
 
@@ -85,7 +116,7 @@ def load_json_config(refresh=False):
 
     ensure_json_config_exists()
 
-    with JSON_CONFIG_FILE.open("r", encoding="utf-8") as f:
+    with JSON_CONFIG_FILE.open("r", encoding="utf-8-sig") as f:
         user_config = json.load(f)
 
     _JSON_CONFIG_CACHE = _merge_dicts(DEFAULT_JSON_CONFIG, user_config)
@@ -261,6 +292,38 @@ MARKET_DEFINITIONS = {
             "NFLX": "Netflix",
             "AMD": "Advanced Micro Devices",
             "INTC": "Intel",
+            "CMCSA": "Comcast",
+            "PINS": "Pinterest",
+            "YELP": "Yelp",
+            "T": "AT&T",
+            "F": "Ford",
+            "SNAP": "Snap",
+            "AAL": "American Airlines Group",
+            "DY": "Dycom Industries",
+            "MELI": "MercadoLibre",
+            "GPRO": "GoPro",
+            "NDLS": "Noodles & Company",
+            "ROOT": "Root",
+            "SIRI": "Sirius XM",
+            "WISH": "ContextLogic",
+            "ARLO": "Arlo Technologies",
+            "MCHP": "Microchip Technology",
+            "ADBE": "Adobe",
+            "COST": "Costco Wholesale",
+            "CRM": "Salesforce",
+            "BOXD": "Boxed",
+            "CRTX": "Cortexyme",
+            "SPSC": "SPS Commerce",
+            "RDFN": "Redfin",
+            "BOX": "Box",
+            "CSPR": "Casper Sleep",
+            "SFIX": "Stitch Fix",
+            "SQ": "Block",
+            "DOCU": "DocuSign",
+            "TWLO": "Twilio",
+            "ROKU": "Roku",
+            "ETSY": "Etsy",
+            "NKE": "Nike",
         },
         "sectors": {
             "AAPL": "Tecnología",
@@ -273,6 +336,38 @@ MARKET_DEFINITIONS = {
             "NFLX": "Streaming",
             "AMD": "Semiconductores",
             "INTC": "Semiconductores",
+            "CMCSA": "Comunicación",
+            "PINS": "Comunicación",
+            "YELP": "Comunicación",
+            "T": "Telecomunicaciones",
+            "F": "Automotriz",
+            "SNAP": "Comunicación",
+            "AAL": "Aerolíneas",
+            "DY": "Industriales",
+            "MELI": "Consumo / E-commerce",
+            "GPRO": "Consumo / Tecnología",
+            "NDLS": "Consumo",
+            "ROOT": "Finanzas",
+            "SIRI": "Comunicación",
+            "WISH": "Consumo / E-commerce",
+            "ARLO": "Tecnología",
+            "MCHP": "Semiconductores",
+            "ADBE": "Software",
+            "COST": "Consumo defensivo",
+            "CRM": "Software",
+            "BOXD": "Consumo / E-commerce",
+            "CRTX": "Salud / Biotecnología",
+            "SPSC": "Software",
+            "RDFN": "Real Estate",
+            "BOX": "Software",
+            "CSPR": "Consumo",
+            "SFIX": "Consumo",
+            "SQ": "Fintech",
+            "DOCU": "Software",
+            "TWLO": "Software",
+            "ROKU": "Comunicación / Streaming",
+            "ETSY": "Consumo / E-commerce",
+            "NKE": "Consumo",
         },
     },
 
@@ -412,6 +507,61 @@ MARKET_DEFINITIONS = {
 }
 
 
+# Límite de lookback para intervalos intradía en Yahoo Finance.
+# Valores conservadores para evitar errores de rango al solicitar históricos largos.
+INTRADAY_INTERVAL_MAX_PERIOD = {
+    "1m": "7d",
+    "2m": "60d",
+    "5m": "60d",
+    "15m": "60d",
+    "30m": "60d",
+    "60m": "730d",
+    "90m": "60d",
+    "1h": "730d",
+    "4h": "730d",
+}
+
+
+def _period_to_days(period: str):
+    if not isinstance(period, str):
+        return None
+
+    value = period.strip().lower()
+
+    if value.endswith("d") and value[:-1].isdigit():
+        return int(value[:-1])
+
+    if value.endswith("wk") and value[:-2].isdigit():
+        return int(value[:-2]) * 7
+
+    if value.endswith("mo") and value[:-2].isdigit():
+        return int(value[:-2]) * 30
+
+    if value.endswith("y") and value[:-1].isdigit():
+        return int(value[:-1]) * 365
+
+    return None
+
+
+def ajustar_periodo_yahoo(period: str, interval: str):
+    if not isinstance(interval, str):
+        return period
+
+    interval_value = interval.strip().lower()
+    max_period = INTRADAY_INTERVAL_MAX_PERIOD.get(interval_value)
+
+    if not max_period:
+        return period
+
+    period_days = _period_to_days(period)
+    max_days = _period_to_days(max_period)
+
+    if period_days is None or max_days is None:
+        return max_period
+
+    return max_period if period_days > max_days else period
+
+
 # ============================================================
 # CLASE MARKET CONFIG
 # ============================================================
@@ -466,8 +616,31 @@ class MarketConfig:
         return self.definition["target_days"]
 
     @property
-    def period(self):
+    def configured_period(self):
         return self.definition["period"]
+
+    @property
+    def effective_period(self):
+        return ajustar_periodo_yahoo(self.configured_period, self.interval)
+
+    @property
+    def period(self):
+        return self.effective_period
+
+    @property
+    def period_was_adjusted(self):
+        return self.configured_period != self.effective_period
+
+    @property
+    def period_adjustment_message(self):
+        if not self.period_was_adjusted:
+            return ""
+
+        return (
+            "WARNING Yahoo intraday limit applied: "
+            f"period configured={self.configured_period} -> used={self.effective_period} "
+            f"(interval={self.interval})"
+        )
 
     @property
     def interval(self):
@@ -701,7 +874,12 @@ class MarketConfig:
         print(f"Zona horaria  : {self.timezone}")
         print(f"Benchmark     : {self.benchmark}")
         print(f"Target días   : {self.target_days}")
-        print(f"Periodo       : {self.period}")
+        if self.period_was_adjusted:
+            print(f"Periodo cfg   : {self.configured_period}")
+            print(f"Periodo usado : {self.effective_period}")
+            print(self.period_adjustment_message)
+        else:
+            print(f"Periodo       : {self.period}")
         print(f"Intervalo     : {self.interval}")
         print(f"Fuente        : {self.source}")
         print(f"Calendario    : {self.calendar}")
