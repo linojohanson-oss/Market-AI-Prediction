@@ -1,4 +1,5 @@
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 import warnings
@@ -36,6 +37,23 @@ CONTEXT_VARIABLES_DEFAULT = {
 
 SQLITE_INCREMENTAL_CACHE = bool(get_json_config_value("pipeline.sqlite_incremental_cache_enabled", True))
 CONTEXT_RECALC_LOOKBACK_BARS = int(get_json_config_value("pipeline.context_recalc_lookback_bars", 320))
+
+
+def _parse_bool_env(value, default=False):
+    if value is None:
+        return default
+
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def exportar_excel_contexto_habilitado():
+    global_default = _parse_bool_env(os.getenv("MARKET_EXPORT_EXCEL"), default=False)
+    return _parse_bool_env(os.getenv("MARKET_CONTEXT_EXPORT_EXCEL"), default=global_default)
 
 
 def normalizar_columnas(df):
@@ -265,10 +283,15 @@ def generar_contexto_mercado(nombre_mercado="merval"):
     contexto.to_csv(archivo_csv, index=False, encoding="utf-8-sig")
     print(f"CSV guardado en {datetime.now() - t_save_csv}: {archivo_csv}")
 
-    print("Guardando Excel de contexto...")
-    t_save_xlsx = datetime.now()
-    contexto_excel.to_excel(archivo_excel, index=False)
-    print(f"Excel guardado en {datetime.now() - t_save_xlsx}: {archivo_excel}")
+    excel_resumen = "OMITIDO (usar --excel-contexto para habilitar)"
+    if exportar_excel_contexto_habilitado():
+        print("Guardando Excel de contexto...")
+        t_save_xlsx = datetime.now()
+        contexto_excel.to_excel(archivo_excel, index=False)
+        print(f"Excel guardado en {datetime.now() - t_save_xlsx}: {archivo_excel}")
+        excel_resumen = str(archivo_excel)
+    else:
+        print("Excel de contexto omitido (flag runtime desactivado).")
 
     print()
     print("=" * 70)
@@ -281,7 +304,7 @@ def generar_contexto_mercado(nombre_mercado="merval"):
     print(f"Desde                 : {contexto['Date'].min()}")
     print(f"Hasta                 : {contexto['Date'].max()}")
     print(f"CSV generado          : {archivo_csv}")
-    print(f"Excel generado        : {archivo_excel}")
+    print(f"Excel generado        : {excel_resumen}")
     print(f"Tiempo total          : {datetime.now() - inicio}")
 
     if errores:

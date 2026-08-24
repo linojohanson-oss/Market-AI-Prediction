@@ -62,7 +62,15 @@ class MarketSQLiteCache:
 
     @staticmethod
     def _to_iso(v):
-        return pd.to_datetime(v, errors="coerce").isoformat()
+        ts = MarketSQLiteCache._to_datetime_utc(v)
+        return ts.isoformat() if not pd.isna(ts) else "NaT"
+
+    @staticmethod
+    def _to_datetime_utc(values):
+        try:
+            return pd.to_datetime(values, errors="coerce", utc=True, format="mixed")
+        except TypeError:
+            return pd.to_datetime(values, errors="coerce", utc=True)
 
     def get_indicator_max_date(self, market: str, interval: str, ticker: str):
         with self._connect() as conn:
@@ -76,7 +84,7 @@ class MarketSQLiteCache:
 
         if not row or not row[0]:
             return None
-        return pd.to_datetime(row[0], errors="coerce")
+        return self._to_datetime_utc(row[0])
 
     def upsert_indicator_rows(self, market: str, interval: str, ticker: str, df: pd.DataFrame):
         if df is None or df.empty:
@@ -141,12 +149,12 @@ class MarketSQLiteCache:
         for ticker, date_iso, payload_json in rows:
             payload = json.loads(payload_json)
             payload["Ticker"] = ticker
-            payload["Date"] = pd.to_datetime(date_iso, errors="coerce")
+            payload["Date"] = self._to_datetime_utc(date_iso)
             out.append(payload)
 
         df = pd.DataFrame(out)
         if "Date" in df.columns:
-            df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+            df["Date"] = self._to_datetime_utc(df["Date"])
         return df
 
     def get_context_max_date(self, market: str, interval: str, serie: str):
@@ -161,14 +169,14 @@ class MarketSQLiteCache:
 
         if not row or not row[0]:
             return None
-        return pd.to_datetime(row[0], errors="coerce")
+        return self._to_datetime_utc(row[0])
 
     def upsert_context_series(self, market: str, interval: str, serie: str, df: pd.DataFrame):
         if df is None or df.empty or "Date" not in df.columns or serie not in df.columns:
             return 0
 
         working = df[["Date", serie]].copy()
-        working["Date"] = pd.to_datetime(working["Date"], errors="coerce")
+        working["Date"] = self._to_datetime_utc(working["Date"])
         working[serie] = pd.to_numeric(working[serie], errors="coerce")
         working.dropna(subset=["Date", serie], inplace=True)
 
@@ -217,7 +225,7 @@ class MarketSQLiteCache:
             return pd.DataFrame(columns=["Date", serie])
 
         df = pd.DataFrame(rows, columns=["Date", serie])
-        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+        df["Date"] = self._to_datetime_utc(df["Date"])
         df[serie] = pd.to_numeric(df[serie], errors="coerce")
         df.dropna(subset=["Date", serie], inplace=True)
         return df

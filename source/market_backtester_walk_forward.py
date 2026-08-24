@@ -14,6 +14,23 @@ TOP_ACTIVOS = 2
 COSTO_TRANSACCION = 0.002
 
 
+def _parse_bool_env(value, default=False):
+    if value is None:
+        return default
+
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def exportar_excel_walk_forward_habilitado():
+    global_default = _parse_bool_env(os.getenv("MARKET_EXPORT_EXCEL"), default=False)
+    return _parse_bool_env(os.getenv("MARKET_WALK_FORWARD_EXPORT_EXCEL"), default=global_default)
+
+
 def buscar_archivo_indicadores(mercado):
     ruta = os.path.join(
         BASE_DIR,
@@ -215,11 +232,14 @@ def guardar_reportes(mercado, operaciones, equity, buy_hold, resumen):
     buy_hold.to_csv(path_bh, index=False)
     pd.DataFrame([resumen]).to_csv(path_resumen, index=False)
 
-    with pd.ExcelWriter(path_xlsx, engine="openpyxl") as writer:
-        pd.DataFrame([resumen]).to_excel(writer, sheet_name="Resumen", index=False)
-        equity.to_excel(writer, sheet_name="Equity", index=False)
-        operaciones.to_excel(writer, sheet_name="Operaciones", index=False)
-        buy_hold.to_excel(writer, sheet_name="BuyHold", index=False)
+    excel_resumen = "OMITIDO (usar --excel-all para habilitar)"
+    if exportar_excel_walk_forward_habilitado():
+        with pd.ExcelWriter(path_xlsx, engine="openpyxl") as writer:
+            pd.DataFrame([resumen]).to_excel(writer, sheet_name="Resumen", index=False)
+            equity.to_excel(writer, sheet_name="Equity", index=False)
+            operaciones.to_excel(writer, sheet_name="Operaciones", index=False)
+            buy_hold.to_excel(writer, sheet_name="BuyHold", index=False)
+        excel_resumen = path_xlsx
 
     with open(path_txt, "w", encoding="utf-8") as f:
         f.write("MARKET AI WALK FORWARD BACKTEST\n")
@@ -238,7 +258,7 @@ def guardar_reportes(mercado, operaciones, equity, buy_hold, resumen):
         "buy_hold": path_bh,
         "resumen": path_resumen,
         "txt": path_txt,
-        "excel": path_xlsx
+        "excel": excel_resumen
     }
 
 

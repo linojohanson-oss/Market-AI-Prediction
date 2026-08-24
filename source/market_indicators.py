@@ -1,4 +1,5 @@
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 
@@ -15,9 +16,50 @@ from source.market_sqlite_cache import MarketSQLiteCache
 
 
 TARGETS = get_json_config_value("pipeline.target_horizons", [1, 5, 10, 20, 60])
-TARGET_5D_MIN_RETURN = get_json_config_value("pipeline.target_min_return_5d", 0.0)
+TARGET_MIN_RETURN = get_json_config_value(
+    "pipeline.target_min_return",
+    get_json_config_value("pipeline.target_min_return_5d", 0.0),
+)
+TARGET_THRESHOLD_DAYS = int(get_json_config_value("pipeline.target_threshold_days", 5))
 SQLITE_INCREMENTAL_CACHE = bool(get_json_config_value("pipeline.sqlite_incremental_cache_enabled", True))
 INDICATORS_RECALC_LOOKBACK_BARS = int(get_json_config_value("pipeline.indicators_recalc_lookback_bars", 320))
+
+
+def guardar_excel_estable(df, output_path):
+    """Write Excel with a stable engine on Windows for large datasets.
+
+    openpyxl can crash the Python process (access violation) on very large exports
+    in some Windows environments. Prefer xlsxwriter when available.
+    """
+    try:
+        import xlsxwriter  # noqa: F401
+        df.to_excel(output_path, index=False, engine="xlsxwriter")
+        return True, "xlsxwriter"
+    except Exception:
+        # Fallback for environments without xlsxwriter.
+        row_count = len(df)
+        if row_count >= 250000:
+            return False, "skip-large-openpyxl-risk"
+
+        df.to_excel(output_path, index=False)
+        return True, "openpyxl"
+
+
+def _parse_bool_env(value, default=False):
+    if value is None:
+        return default
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def exportar_excel_indicadores_habilitado():
+    # Runtime opt-in: disabled by default for faster and safer runs.
+    global_default = _parse_bool_env(os.getenv("MARKET_EXPORT_EXCEL"), default=False)
+    return _parse_bool_env(os.getenv("MARKET_INDICATORS_EXPORT_EXCEL"), default=global_default)
 
 
 def resolver_columna(df, posibles):
@@ -438,8 +480,23 @@ def calcular_indicadores_activo(df):
     for t in TARGETS:
         df[f"Future_Close_{t}d"] = df["Close"].shift(-t)
         df[f"Future_Return_{t}d"] = df[f"Future_Close_{t}d"] / df["Close"] - 1
-        threshold = TARGET_5D_MIN_RETURN if t == 5 else 0
-        df[f"Target_{t}d"] = np.where(df[f"Future_Return_{t}d"] > threshold, 1, 0)
+        threshold = TARGET_MIN_RETURN if t == TARGET_THRESHOLD_DAYS else 0
+
+        if t == TARGET_THRESHOLD_DAYS:
+            # Mark as achieved if threshold is reached at any close within
+            # the next t days (not only at the day-t close).
+            future_max_close = (
+                df["Close"]
+                .shift(-1)
+                .iloc[::-1]
+                .rolling(window=t, min_periods=t)
+                .max()
+                .iloc[::-1]
+            )
+            df[f"Future_Max_Return_{t}d"] = future_max_close / df["Close"] - 1
+            df[f"Target_{t}d"] = np.where(df[f"Future_Max_Return_{t}d"] > threshold, 1, 0)
+        else:
+            df[f"Target_{t}d"] = np.where(df[f"Future_Return_{t}d"] > threshold, 1, 0)
 
     return df
 
@@ -451,7 +508,12 @@ def recorte_recalculo(df_ticker, last_cached_date, lookback_bars):
     if df_ticker.empty:
         return df_ticker.copy(), "empty"
 
-    fechas = pd.to_datetime(df_ticker["Date"], errors="coerce").reset_index(drop=True)
+    fechas = pd.to_datetime(df_ticker["Date"], errors="coerce", utc=True).reset_index(drop=True)
+    last_cached_date = pd.to_datetime(last_cached_date, errors="coerce", utc=True)
+
+    if pd.isna(last_cached_date):
+        return df_ticker.copy(), "full"
+
     idx = fechas.searchsorted(last_cached_date, side="right") - 1
 
     if idx < 0:
@@ -539,10 +601,31 @@ def generar_indicadores(nombre_mercado="merval"):
     base.to_csv(market.indicators_csv, index=False, encoding="utf-8-sig")
     print(f"CSV guardado en {datetime.now() - t_save_csv}: {market.indicators_csv}")
 
-    print("Guardando Excel de indicadores...")
-    t_save_xlsx = datetime.now()
-    base_excel.to_excel(market.indicators_excel, index=False)
-    print(f"Excel guardado en {datetime.now() - t_save_xlsx}: {market.indicators_excel}")
+    excel_generado = False
+    excel_resumen = "OMITIDO (usar --excel-indicators para habilitar)"
+
+    if exportar_excel_indicadores_habilitado():
+        print("Guardando Excel de indicadores...")
+        t_save_xlsx = datetime.now()
+        excel_ok, excel_engine = guardar_excel_estable(base_excel, market.indicators_excel)
+        if excel_ok:
+            excel_generado = True
+            excel_resumen = str(market.indicators_excel)
+            print(
+                f"Excel guardado en {datetime.now() - t_save_xlsx}: {market.indicators_excel} "
+                f"(engine={excel_engine})"
+            )
+        else:
+            excel_resumen = (
+                "OMITIDO (riesgo openpyxl en exportes grandes; CSV disponible en "
+                f"{market.indicators_csv})"
+            )
+            print(
+                "WARNING Excel omitido para evitar crash de openpyxl en exportes grandes "
+                f"({len(base_excel):,} filas). CSV disponible: {market.indicators_csv}"
+            )
+    else:
+        print("Excel de indicadores omitido (flag runtime desactivado).")
 
     columnas_indicadores = [
         c for c in base.columns
@@ -586,7 +669,7 @@ def generar_indicadores(nombre_mercado="merval"):
     print(f"Desde                   : {base['Date'].min()}")
     print(f"Hasta                   : {base['Date'].max()}")
     print(f"CSV generado            : {market.indicators_csv}")
-    print(f"Excel generado          : {market.indicators_excel}")
+    print(f"Excel generado          : {excel_resumen}")
     print(f"Tiempo total            : {datetime.now() - inicio}")
 
     return base

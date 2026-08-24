@@ -1,4 +1,5 @@
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 import warnings
@@ -45,6 +46,23 @@ from config import MarketConfig
 
 OBJETIVO = "Objetivo_5d"
 SAFE_N_JOBS = 1
+
+
+def _parse_bool_env(value, default=False):
+    if value is None:
+        return default
+
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def exportar_excel_training_habilitado():
+    global_default = _parse_bool_env(os.getenv("MARKET_EXPORT_EXCEL"), default=False)
+    return _parse_bool_env(os.getenv("MARKET_TRAINING_EXPORT_EXCEL"), default=global_default)
 
 
 def cargar_dataset(market):
@@ -326,7 +344,10 @@ def entrenar_mercado(nombre_mercado="merval"):
     metricas_excel = market.metrics_dir / "metricas_modelos.xlsx"
 
     df_metricas.to_csv(metricas_csv, index=False, encoding="utf-8-sig")
-    df_metricas.to_excel(metricas_excel, index=False)
+    excel_resumen = "OMITIDO (usar --excel-all para habilitar)"
+    if exportar_excel_training_habilitado():
+        df_metricas.to_excel(metricas_excel, index=False)
+        excel_resumen = str(metricas_excel)
 
     print()
     print("=" * 70)
@@ -341,7 +362,7 @@ def entrenar_mercado(nombre_mercado="merval"):
 
     print()
     print(f"Métricas CSV   : {metricas_csv}")
-    print(f"Métricas Excel : {metricas_excel}")
+    print(f"Métricas Excel : {excel_resumen}")
     print(f"Features PKL   : {market.features_pkl}")
     print(f"Tiempo total   : {datetime.now() - inicio}")
 

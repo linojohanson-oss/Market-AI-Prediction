@@ -1,4 +1,5 @@
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 
@@ -19,6 +20,23 @@ except ModuleNotFoundError:
 # =============================================================================
 # DECISION ENGINE MULTI-MERCADO
 # =============================================================================
+
+
+def _parse_bool_env(value, default=False):
+    if value is None:
+        return default
+
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def exportar_excel_decision_habilitado():
+    global_default = _parse_bool_env(os.getenv("MARKET_EXPORT_EXCEL"), default=False)
+    return _parse_bool_env(os.getenv("MARKET_DECISION_EXPORT_EXCEL"), default=global_default)
 
 def rutas_decision_engine(nombre_mercado):
     market = MarketConfig(nombre_mercado)
@@ -291,10 +309,13 @@ def generar_decision(nombre_mercado="merval"):
         encoding="utf-8-sig"
     )
 
-    df_resultado.to_excel(
-        rutas["xlsx_out"],
-        index=False
-    )
+    excel_resumen = "OMITIDO (usar --excel-all para habilitar)"
+    if exportar_excel_decision_habilitado():
+        df_resultado.to_excel(
+            rutas["xlsx_out"],
+            index=False
+        )
+        excel_resumen = str(rutas["xlsx_out"])
 
     with open(rutas["txt_out"], "w", encoding="utf-8") as f:
         f.write("=" * 80 + "\n")
@@ -370,7 +391,7 @@ def generar_decision(nombre_mercado="merval"):
     print("REPORTES GENERADOS")
     print("=" * 80)
     print(rutas["csv_out"])
-    print(rutas["xlsx_out"])
+    print(excel_resumen)
     print(rutas["txt_out"])
 
     print()

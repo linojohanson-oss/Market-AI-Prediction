@@ -9,3 +9,4 @@ openpyxl
 requests
 scipy
 lightgbm
+xlsxwriter

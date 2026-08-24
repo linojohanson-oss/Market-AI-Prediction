@@ -20,6 +20,23 @@ HORIZONTE_DIAS = 5
 COSTO_TRANSACCION = 0.002
 
 
+def _parse_bool_env(value, default=False):
+    if value is None:
+        return default
+
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def exportar_excel_backtester_habilitado():
+    global_default = _parse_bool_env(os.getenv("MARKET_EXPORT_EXCEL"), default=False)
+    return _parse_bool_env(os.getenv("MARKET_BACKTESTER_EXPORT_EXCEL"), default=global_default)
+
+
 def resolver_columna(df, posibles):
     for col in posibles:
         if col in df.columns:
@@ -298,11 +315,14 @@ def exportar_resultados(market, metricas, carteras, operaciones, equity, inicio)
     equity.to_csv(out_equity, index=False, encoding="utf-8-sig")
     resumen_df.to_csv(out_res, index=False, encoding="utf-8-sig")
 
-    with pd.ExcelWriter(out_xlsx, engine="openpyxl") as writer:
-        resumen_df.to_excel(writer, index=False, sheet_name="Resumen")
-        equity.to_excel(writer, index=False, sheet_name="Equity")
-        carteras.to_excel(writer, index=False, sheet_name="Carteras")
-        operaciones.to_excel(writer, index=False, sheet_name="Operaciones")
+    excel_resumen = "OMITIDO (usar --excel-all para habilitar)"
+    if exportar_excel_backtester_habilitado():
+        with pd.ExcelWriter(out_xlsx, engine="openpyxl") as writer:
+            resumen_df.to_excel(writer, index=False, sheet_name="Resumen")
+            equity.to_excel(writer, index=False, sheet_name="Equity")
+            carteras.to_excel(writer, index=False, sheet_name="Carteras")
+            operaciones.to_excel(writer, index=False, sheet_name="Operaciones")
+        excel_resumen = out_xlsx
 
     with open(out_txt, "w", encoding="utf-8") as f:
         f.write("=" * 80 + "\n")
@@ -317,7 +337,7 @@ def exportar_resultados(market, metricas, carteras, operaciones, equity, inicio)
         f.write(f"Archivo operaciones : {out_ops}\n")
         f.write(f"Archivo equity      : {out_equity}\n")
         f.write(f"Archivo resumen     : {out_res}\n")
-        f.write(f"Archivo Excel       : {out_xlsx}\n")
+        f.write(f"Archivo Excel       : {excel_resumen}\n")
         f.write(f"Tiempo total        : {datetime.now() - inicio}\n")
 
     return {
@@ -325,7 +345,7 @@ def exportar_resultados(market, metricas, carteras, operaciones, equity, inicio)
         "operaciones": out_ops,
         "equity": out_equity,
         "resumen": out_res,
-        "xlsx": out_xlsx,
+        "xlsx": excel_resumen,
         "txt": out_txt,
     }
 

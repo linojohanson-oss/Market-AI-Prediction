@@ -28,6 +28,23 @@ REPORTES_DIR = os.path.join(BASE_DIR, "reportes", "merval")
 os.makedirs(REPORTES_DIR, exist_ok=True)
 
 
+def _parse_bool_env(value, default=False):
+    if value is None:
+        return default
+
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def exportar_excel_scoring_v2_habilitado():
+    global_default = _parse_bool_env(os.getenv("MARKET_EXPORT_EXCEL"), default=False)
+    return _parse_bool_env(os.getenv("MARKET_SCORING_V2_EXPORT_EXCEL"), default=global_default)
+
+
 def clasificar_confianza(prob):
     if prob >= 0.85:
         return "MUY ALTA", "★★★★★"
@@ -167,7 +184,10 @@ def generar_scoring_v2():
     xlsx_path = os.path.join(REPORTES_DIR, "ranking_diario_merval_v2.xlsx")
 
     ranking.to_csv(csv_path, index=False)
-    ranking.to_excel(xlsx_path, index=False)
+    excel_resumen = "OMITIDO (usar --excel-all para habilitar)"
+    if exportar_excel_scoring_v2_habilitado():
+        ranking.to_excel(xlsx_path, index=False)
+        excel_resumen = xlsx_path
 
     print()
     print("=" * 80)
@@ -177,7 +197,7 @@ def generar_scoring_v2():
 
     print()
     print(f"CSV generado   : {csv_path}")
-    print(f"Excel generado : {xlsx_path}")
+    print(f"Excel generado : {excel_resumen}")
     print(f"Tiempo         : {datetime.now()}")
 
 

@@ -1,4 +1,5 @@
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 import warnings
@@ -16,6 +17,23 @@ from source.market_model_manager import MarketModelManager
 
 
 TOP_MODELOS = 3
+
+
+def _parse_bool_env(value, default=False):
+    if value is None:
+        return default
+
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def exportar_excel_ranking_habilitado():
+    global_default = _parse_bool_env(os.getenv("MARKET_EXPORT_EXCEL"), default=False)
+    return _parse_bool_env(os.getenv("MARKET_RANKING_EXPORT_EXCEL"), default=global_default)
 
 
 def preparar_ultimos_datos(manager):
@@ -322,7 +340,11 @@ def generar_market_scoring(nombre_mercado="merval"):
     ranking = ordenar_columnas(ultimos)
 
     ranking.to_csv(market.ranking_csv, index=False, encoding="utf-8-sig")
-    ranking.to_excel(market.ranking_excel, index=False)
+
+    excel_resumen = "OMITIDO (usar --excel-ranking-diario para habilitar)"
+    if exportar_excel_ranking_habilitado():
+        ranking.to_excel(market.ranking_excel, index=False)
+        excel_resumen = str(market.ranking_excel)
 
     print()
     print("=" * 70)
@@ -352,7 +374,7 @@ def generar_market_scoring(nombre_mercado="merval"):
 
     print()
     print(f"CSV generado   : {market.ranking_csv}")
-    print(f"Excel generado : {market.ranking_excel}")
+    print(f"Excel generado : {excel_resumen}")
     print(f"Tiempo total   : {datetime.now() - inicio}")
 
     return ranking

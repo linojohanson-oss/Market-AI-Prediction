@@ -1,4 +1,5 @@
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 import warnings
@@ -20,6 +21,56 @@ TARGET_PRINCIPAL = get_json_config_value("pipeline.target_principal", "Target_5d
 TARGET_HORIZONS = get_json_config_value("pipeline.target_horizons", [1, 5, 10, 20, 60])
 MIN_ROWS_PER_TICKER = get_json_config_value("pipeline.min_rows_per_ticker", 200)
 FILLNA_MODEL_FEATURES = get_json_config_value("pipeline.fillna_model_features", 0)
+
+
+def leer_csv_robusto(path):
+    """Read CSV with encoding fallbacks for resilient pipeline runs."""
+    encodings = ["utf-8-sig", "utf-8", "cp1252", "latin1"]
+    last_error = None
+
+    for enc in encodings:
+        try:
+            return pd.read_csv(path, encoding=enc)
+        except UnicodeDecodeError as e:
+            last_error = e
+
+    # Keep original failure semantics when all candidates fail.
+    if last_error is not None:
+        raise last_error
+
+    return pd.read_csv(path)
+
+
+def _parse_bool_env(value, default=False):
+    if value is None:
+        return default
+
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def exportar_excel_dataset_habilitado():
+    # Runtime opt-in: disabled by default for speed and stability.
+    global_default = _parse_bool_env(os.getenv("MARKET_EXPORT_EXCEL"), default=False)
+    return _parse_bool_env(os.getenv("MARKET_DATASET_EXPORT_EXCEL"), default=global_default)
+
+
+def guardar_excel_estable(df, output_path):
+    try:
+        import xlsxwriter  # noqa: F401
+        df.to_excel(output_path, index=False, engine="xlsxwriter")
+        return True, "xlsxwriter"
+    except Exception:
+        row_count = len(df)
+        if row_count >= 250000:
+            return False, "skip-large-openpyxl-risk"
+
+        df.to_excel(output_path, index=False)
+        return True, "openpyxl"
 
 
 def resolver_columna(df, posibles):
@@ -82,7 +133,7 @@ def cargar_indicadores(market):
             f"Primero ejecutá market_indicators.py"
         )
 
-    df = pd.read_csv(indicadores_path)
+    df = leer_csv_robusto(indicadores_path)
     df = normalizar_columnas_dataset(df)
 
     if "Date" not in df.columns:
@@ -105,7 +156,7 @@ def cargar_contexto(market):
         print("Se generará dataset solo con indicadores técnicos.")
         return None
     print(f"Archivo Contexto { contexto_csv}")
-    contexto = pd.read_csv(contexto_csv)
+    contexto = leer_csv_robusto(contexto_csv)
     contexto["Date"] = normalizar_fecha_utc_naive(contexto["Date"])
     contexto = contexto.dropna(subset=["Date"]).copy()
 
@@ -136,11 +187,17 @@ def integrar_contexto(df, contexto):
     return integrado, len(columnas_contexto)
 
 
-def limpiar_targets_futuros(df):
+def limpiar_targets_futuros(df, target_horizons, target_principal):
     columnas_excluir = []
 
-    for horizon in TARGET_HORIZONS:
-        if horizon == 5:
+    keep_horizon = None
+    if isinstance(target_principal, str) and target_principal.startswith("Target_") and target_principal.endswith("d"):
+        mid = target_principal[len("Target_"):-1]
+        if mid.isdigit():
+            keep_horizon = int(mid)
+
+    for horizon in target_horizons:
+        if keep_horizon is not None and horizon == keep_horizon:
             continue
         columnas_excluir.extend([
             f"Future_Close_{horizon}d",
@@ -153,9 +210,11 @@ def limpiar_targets_futuros(df):
     return df.drop(columns=columnas_excluir).copy()
 
 
-def generar_dataset_ia(nombre_mercado="merval"):
+def generar_dataset_ia(nombre_mercado="merval", target_principal=None, target_horizons=None):
     inicio = datetime.now()
     market = MarketConfig(nombre_mercado)
+    target_principal = target_principal or TARGET_PRINCIPAL
+    target_horizons = target_horizons or TARGET_HORIZONS
 
     print("=" * 70)
     print(f"MARKET DATASET IA + CONTEXTO - {market.display_name}")
@@ -179,12 +238,12 @@ def generar_dataset_ia(nombre_mercado="merval"):
 
     df, columnas_contexto = integrar_contexto(df, contexto)
 
-    dataset = limpiar_targets_futuros(df)
+    dataset = limpiar_targets_futuros(df, target_horizons, target_principal)
 
-    if TARGET_PRINCIPAL not in dataset.columns:
-        raise ValueError(f"No existe columna objetivo {TARGET_PRINCIPAL}")
+    if target_principal not in dataset.columns:
+        raise ValueError(f"No existe columna objetivo {target_principal}")
 
-    dataset.rename(columns={TARGET_PRINCIPAL: "Objetivo_5d"}, inplace=True)
+    dataset.rename(columns={target_principal: "Objetivo_5d"}, inplace=True)
 
     columnas_excluir_modelo = [
         "Date",
@@ -231,10 +290,28 @@ def generar_dataset_ia(nombre_mercado="merval"):
     dataset.to_csv(market.dataset_csv, index=False, encoding="utf-8-sig")
     print(f"CSV guardado en {datetime.now() - t_save_csv}: {market.dataset_csv}")
 
-    print("Guardando Excel de dataset IA...")
-    t_save_xlsx = datetime.now()
-    dataset_excel.to_excel(market.dataset_excel, index=False)
-    print(f"Excel guardado en {datetime.now() - t_save_xlsx}: {market.dataset_excel}")
+    excel_resumen = "OMITIDO (usar --excel-dataset para habilitar)"
+    if exportar_excel_dataset_habilitado():
+        print("Guardando Excel de dataset IA...")
+        t_save_xlsx = datetime.now()
+        excel_ok, excel_engine = guardar_excel_estable(dataset_excel, market.dataset_excel)
+        if excel_ok:
+            excel_resumen = str(market.dataset_excel)
+            print(
+                f"Excel guardado en {datetime.now() - t_save_xlsx}: {market.dataset_excel} "
+                f"(engine={excel_engine})"
+            )
+        else:
+            excel_resumen = (
+                "OMITIDO (riesgo openpyxl en exportes grandes; CSV disponible en "
+                f"{market.dataset_csv})"
+            )
+            print(
+                "WARNING Excel de dataset omitido para evitar crash de openpyxl en exportes grandes "
+                f"({len(dataset_excel):,} filas). CSV disponible: {market.dataset_csv}"
+            )
+    else:
+        print("Excel de dataset omitido (flag runtime desactivado).")
 
     objetivo_pct = dataset["Objetivo_5d"].mean()
 
@@ -247,11 +324,12 @@ def generar_dataset_ia(nombre_mercado="merval"):
     print(f"Columnas totales        : {len(dataset.columns)}")
     print(f"Columnas modelo         : {len(columnas_modelo)}")
     print(f"Columnas contexto       : {columnas_contexto}")
+    print(f"Target principal        : {target_principal}")
     print(f"Objetivo positivo       : {objetivo_pct:.2%}")
     print(f"Desde                   : {dataset['Date'].min()}")
     print(f"Hasta                   : {dataset['Date'].max()}")
     print(f"CSV generado            : {market.dataset_csv}")
-    print(f"Excel generado          : {market.dataset_excel}")
+    print(f"Excel generado          : {excel_resumen}")
     print(f"Tiempo total            : {datetime.now() - inicio}")
 
     return dataset

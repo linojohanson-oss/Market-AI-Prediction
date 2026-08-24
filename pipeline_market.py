@@ -1,4 +1,5 @@
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 import traceback
@@ -272,8 +273,95 @@ def seleccionar_mercado():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        mercado = sys.argv[1].lower().strip()
+    args = sys.argv[1:]
+    enable_excel_all = "--excel-all" in args
+    disable_excel_all = "--no-excel-all" in args
+    enable_excel = "--excel-indicators" in args
+    disable_excel = "--no-excel-indicators" in args
+    enable_download_excel = "--excel-download" in args
+    disable_download_excel = "--no-excel-download" in args
+    enable_dataset_excel = "--excel-dataset" in args
+    disable_dataset_excel = "--no-excel-dataset" in args
+    enable_ranking_excel = "--excel-ranking-diario" in args
+    disable_ranking_excel = "--no-excel-ranking-diario" in args
+    enable_model_ranking_excel = "--excel-ranking-modelos" in args
+    disable_model_ranking_excel = "--no-excel-ranking-modelos" in args
+    enable_context_excel = "--excel-contexto" in args
+    disable_context_excel = "--no-excel-contexto" in args
+
+    args_clean = [
+        a for a in args
+        if a not in {
+            "--excel-indicators",
+            "--no-excel-indicators",
+            "--excel-download",
+            "--no-excel-download",
+            "--excel-dataset",
+            "--no-excel-dataset",
+            "--excel-ranking-diario",
+            "--no-excel-ranking-diario",
+            "--excel-ranking-modelos",
+            "--no-excel-ranking-modelos",
+            "--excel-contexto",
+            "--no-excel-contexto",
+            "--excel-all",
+            "--no-excel-all",
+        }
+    ]
+
+    if disable_excel_all:
+        os.environ["MARKET_EXPORT_EXCEL"] = "0"
+    elif enable_excel_all:
+        os.environ["MARKET_EXPORT_EXCEL"] = "1"
+    else:
+        os.environ.setdefault("MARKET_EXPORT_EXCEL", "0")
+
+    global_excel_default = "1" if os.environ.get("MARKET_EXPORT_EXCEL", "0") == "1" else "0"
+
+    if disable_excel:
+        os.environ["MARKET_INDICATORS_EXPORT_EXCEL"] = "0"
+    elif enable_excel:
+        os.environ["MARKET_INDICATORS_EXPORT_EXCEL"] = "1"
+    else:
+        os.environ.setdefault("MARKET_INDICATORS_EXPORT_EXCEL", global_excel_default)
+
+    if disable_download_excel:
+        os.environ["MARKET_DOWNLOADER_EXPORT_EXCEL"] = "0"
+    elif enable_download_excel:
+        os.environ["MARKET_DOWNLOADER_EXPORT_EXCEL"] = "1"
+    else:
+        os.environ.setdefault("MARKET_DOWNLOADER_EXPORT_EXCEL", global_excel_default)
+
+    if disable_dataset_excel:
+        os.environ["MARKET_DATASET_EXPORT_EXCEL"] = "0"
+    elif enable_dataset_excel:
+        os.environ["MARKET_DATASET_EXPORT_EXCEL"] = "1"
+    else:
+        os.environ.setdefault("MARKET_DATASET_EXPORT_EXCEL", global_excel_default)
+
+    if disable_ranking_excel:
+        os.environ["MARKET_RANKING_EXPORT_EXCEL"] = "0"
+    elif enable_ranking_excel:
+        os.environ["MARKET_RANKING_EXPORT_EXCEL"] = "1"
+    else:
+        os.environ.setdefault("MARKET_RANKING_EXPORT_EXCEL", global_excel_default)
+
+    if disable_model_ranking_excel:
+        os.environ["MARKET_MODEL_RANKING_EXPORT_EXCEL"] = "0"
+    elif enable_model_ranking_excel:
+        os.environ["MARKET_MODEL_RANKING_EXPORT_EXCEL"] = "1"
+    else:
+        os.environ.setdefault("MARKET_MODEL_RANKING_EXPORT_EXCEL", global_excel_default)
+
+    if disable_context_excel:
+        os.environ["MARKET_CONTEXT_EXPORT_EXCEL"] = "0"
+    elif enable_context_excel:
+        os.environ["MARKET_CONTEXT_EXPORT_EXCEL"] = "1"
+    else:
+        os.environ.setdefault("MARKET_CONTEXT_EXPORT_EXCEL", global_excel_default)
+
+    if args_clean:
+        mercado = args_clean[0].lower().strip()
     else:
         mercado = seleccionar_mercado()
 

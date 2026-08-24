@@ -6,6 +6,23 @@ from datetime import datetime
 
 from source.app_logger import log_print as print
 
+
+def _parse_bool_env(value, default=False):
+    if value is None:
+        return default
+
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def exportar_excel_diagnostico_habilitado():
+    global_default = _parse_bool_env(os.getenv("MARKET_EXPORT_EXCEL"), default=False)
+    return _parse_bool_env(os.getenv("MARKET_DIAGNOSTICO_EXPORT_EXCEL"), default=global_default)
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 DATASET_PATH = os.path.join(
@@ -122,7 +139,8 @@ def diagnosticar_modelo():
     xlsx_resumen = os.path.join(REPORTES_DIR, "diagnostico_probabilidades_ultimas_30_fechas.xlsx")
 
     resumen.to_csv(csv_resumen, index=False)
-    resumen.to_excel(xlsx_resumen, index=False)
+    if exportar_excel_diagnostico_habilitado():
+        resumen.to_excel(xlsx_resumen, index=False)
 
     print()
     print("=" * 80)
@@ -163,7 +181,8 @@ def diagnosticar_modelo():
     xlsx_detalle = os.path.join(REPORTES_DIR, "diagnostico_ultima_fecha_detalle.xlsx")
 
     detalle.to_csv(csv_detalle, index=False)
-    detalle.to_excel(xlsx_detalle, index=False)
+    if exportar_excel_diagnostico_habilitado():
+        detalle.to_excel(xlsx_detalle, index=False)
 
     print()
     print("=" * 80)
@@ -196,7 +215,8 @@ def diagnosticar_modelo():
     xlsx_cal = os.path.join(REPORTES_DIR, "diagnostico_calibracion_global.xlsx")
 
     calibracion.to_csv(csv_cal, index=False)
-    calibracion.to_excel(xlsx_cal, index=False)
+    if exportar_excel_diagnostico_habilitado():
+        calibracion.to_excel(xlsx_cal, index=False)
 
     print()
     print("=" * 80)

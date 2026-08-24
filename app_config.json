@@ -21,7 +21,7 @@
       120,
       200
     ],
-    "target_min_return_5d": 0.01,
+    "target_min_return_5d": 0.015,
     "min_rows_per_ticker": 200,
     "fillna_model_features": 0,
     "enable_optimization": true,
@@ -34,6 +34,23 @@
     "random_state": 42,
     "test_size": 0.2
   },
+  "optimizer_simulator": {
+    "target_days_list": [
+      5,
+      10,
+      15
+    ],
+    "target_min_returns": [
+      0.015,
+      0.03,
+      0.05
+    ],
+    "stop_loss_pct_list": [
+      0.015,
+      0.02,
+      0.03
+    ]
+  },
   "logging": {
     "level": "INFO",
     "info_verbosity": 3
@@ -43,6 +60,7 @@
     "alpha_per_score_point_pct": 0.03,
     "min_edge_buffer_pct": 0.2,
     "min_trade_value": 150.0,
+    "stop_loss_pct": 0.015,
     "markets": {
       "crypto": {
         "capital_inicial": 475.0,
@@ -54,23 +72,33 @@
           "fixed_cost_per_trade": 0.0
         },
         "current_positions": {
-          "cash": 187.0,
+          "cash": 0.77,
           "positions": [
             {
-              "ticker": "LINK-USDT",
-              "quantity": 14.33,
-              "avg_price": 8.718
+              "ticker": "BNB-USDT",
+              "quantity": 0.24580593,
+              "avg_price": 611
             },
             {
-              "ticker": "BNB-USDT",
-              "quantity": 0.245,
-              "avg_price": 611
+              "ticker": "ATOM-USDT",
+              "quantity": 94.34,
+              "avg_price": 1.59
+            },
+            {
+              "ticker": "LPT-USDT",
+              "quantity": 107.6,
+              "avg_price": 1.394
+            },
+            {
+              "ticker": "SHIB-USDT",
+              "quantity": 15454545,
+              "avg_price": 0.0000055
             }
           ]
         }
       },
       "etf": {
-        "capital_inicial": 10000.0,
+        "capital_inicial": 0.0,
         "costs": {
           "buy_fee_pct": 0.1,
           "sell_fee_pct": 0.1,
@@ -79,12 +107,12 @@
           "fixed_cost_per_trade": 0.0
         },
         "current_positions": {
-          "cash": 10000.0,
+          "cash": 0.0,
           "positions": []
         }
       },
       "nasdaq": {
-        "capital_inicial": 15000.0,
+        "capital_inicial": 0.0,
         "costs": {
           "buy_fee_pct": 0.1,
           "sell_fee_pct": 0.1,
@@ -93,12 +121,12 @@
           "fixed_cost_per_trade": 0.0
         },
         "current_positions": {
-          "cash": 15000.0,
+          "cash": 0.0,
           "positions": []
         }
       },
       "merval": {
-        "capital_inicial": 3000000.0,
+        "capital_inicial": 0.0,
         "costs": {
           "buy_fee_pct": 0.6,
           "sell_fee_pct": 0.6,
@@ -107,7 +135,7 @@
           "fixed_cost_per_trade": 0.0
         },
         "current_positions": {
-          "cash": 3000000.0,
+          "cash": 0.0,
           "positions": []
         }
       }

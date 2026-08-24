@@ -42,6 +42,23 @@ os.makedirs(MODELOS_DIR, exist_ok=True)
 os.makedirs(METRICAS_DIR, exist_ok=True)
 
 
+def _parse_bool_env(value, default=False):
+    if value is None:
+        return default
+
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def exportar_excel_model_manager_habilitado():
+    global_default = _parse_bool_env(os.getenv("MARKET_EXPORT_EXCEL"), default=False)
+    return _parse_bool_env(os.getenv("MARKET_MODEL_MANAGER_EXPORT_EXCEL"), default=global_default)
+
+
 def cargar_modelos():
     modelos = {
         "RandomForest": RandomForestClassifier(
@@ -334,7 +351,10 @@ def entrenar_model_manager():
     xlsx_path = os.path.join(METRICAS_DIR, "metricas_model_manager_merval.xlsx")
 
     metricas.to_csv(csv_path, index=False)
-    metricas.to_excel(xlsx_path, index=False)
+    excel_resumen = "OMITIDO (usar --excel-all para habilitar)"
+    if exportar_excel_model_manager_habilitado():
+        metricas.to_excel(xlsx_path, index=False)
+        excel_resumen = xlsx_path
 
     mejor_modelo = metricas.iloc[0]
 
@@ -368,7 +388,7 @@ def entrenar_model_manager():
 
     print()
     print(f"Métricas CSV   : {csv_path}")
-    print(f"Métricas Excel : {xlsx_path}")
+    print(f"Métricas Excel : {excel_resumen}")
     print(f"Best model     : {best_model_path}")
     print(f"Features       : {feature_columns_path}")
     print(f"Impute values  : {impute_values_path}")

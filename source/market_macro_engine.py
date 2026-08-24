@@ -1,4 +1,5 @@
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 
@@ -15,6 +16,23 @@ from config import MarketConfig, get_json_config_value
 TARGET_PRINCIPAL = get_json_config_value("pipeline.target_principal", "Target_5d")
 MIN_ROWS_PER_TICKER = get_json_config_value("pipeline.min_rows_per_ticker", 200)
 FILLNA_MODEL_FEATURES = get_json_config_value("pipeline.fillna_model_features", 0)
+
+
+def _parse_bool_env(value, default=False):
+    if value is None:
+        return default
+
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def exportar_excel_macro_habilitado():
+    global_default = _parse_bool_env(os.getenv("MARKET_EXPORT_EXCEL"), default=False)
+    return _parse_bool_env(os.getenv("MARKET_MACRO_EXPORT_EXCEL"), default=global_default)
 
 
 def generar_dataset_ia(nombre_mercado="merval"):
@@ -95,7 +113,10 @@ def generar_dataset_ia(nombre_mercado="merval"):
     dataset.sort_values(["Ticker", "Date"], inplace=True)
 
     dataset.to_csv(market.dataset_csv, index=False, encoding="utf-8-sig")
-    dataset.to_excel(market.dataset_excel, index=False)
+    excel_resumen = "OMITIDO (usar --excel-all para habilitar)"
+    if exportar_excel_macro_habilitado():
+        dataset.to_excel(market.dataset_excel, index=False)
+        excel_resumen = str(market.dataset_excel)
 
     objetivo_pct = dataset["Objetivo_5d"].mean()
 
@@ -111,7 +132,7 @@ def generar_dataset_ia(nombre_mercado="merval"):
     print(f"Desde                 : {dataset['Date'].min()}")
     print(f"Hasta                 : {dataset['Date'].max()}")
     print(f"CSV generado          : {market.dataset_csv}")
-    print(f"Excel generado        : {market.dataset_excel}")
+    print(f"Excel generado        : {excel_resumen}")
     print(f"Tiempo total          : {datetime.now() - inicio}")
 
     return dataset

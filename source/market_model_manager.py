@@ -1,4 +1,5 @@
 import sys
+import os
 from pathlib import Path
 from datetime import datetime
 import json
@@ -15,6 +16,23 @@ from config import MarketConfig
 
 F1_MINIMO_ACTIVO = 0.0
 PESO_MINIMO = 0.01
+
+
+def _parse_bool_env(value, default=False):
+    if value is None:
+        return default
+
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def exportar_excel_ranking_modelos_habilitado():
+    global_default = _parse_bool_env(os.getenv("MARKET_EXPORT_EXCEL"), default=False)
+    return _parse_bool_env(os.getenv("MARKET_MODEL_RANKING_EXPORT_EXCEL"), default=global_default)
 
 
 class MarketModelManager:
@@ -165,7 +183,8 @@ class MarketModelManager:
         ranking = self.metricas[columnas].copy()
 
         ranking.to_csv(archivo_csv, index=False, encoding="utf-8-sig")
-        ranking.to_excel(archivo_excel, index=False)
+        if exportar_excel_ranking_modelos_habilitado():
+            ranking.to_excel(archivo_excel, index=False)
 
         return archivo_csv, archivo_excel
 
@@ -284,7 +303,10 @@ class MarketModelManager:
         print(f"Modelo activo JSON : {archivo_activo}")
         print(f"Ensemble JSON      : {archivo_ensemble}")
         print(f"Ranking CSV        : {ranking_csv}")
-        print(f"Ranking Excel      : {ranking_excel}")
+        if exportar_excel_ranking_modelos_habilitado():
+            print(f"Ranking Excel      : {ranking_excel}")
+        else:
+            print("Ranking Excel      : OMITIDO (usar --excel-ranking-modelos para habilitar)")
 
         print()
         print("Ranking modelos")

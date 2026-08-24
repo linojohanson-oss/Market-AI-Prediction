@@ -295,6 +295,55 @@ py source/init_sqlite_cache.py crypto --db-path H:/tmp/crypto_cache.sqlite
 
 ---
 
+# Optimizer Simulator
+
+To run optimizer simulations without inline Python (`python -c ...`), use the dedicated runner script.
+
+## 1) Default run from app_config
+
+This uses values from `app_config.json`, including:
+
+- `optimizer_simulator.target_days_list`
+- `optimizer_simulator.target_min_returns`
+- `optimizer_simulator.stop_loss_pct_list`
+
+PowerShell (from project root):
+
+```powershell
+.\.venv\Scripts\python.exe .\run_optimizer_simulator.py --markets crypto
+```
+
+## 2) Override values from command line
+
+```powershell
+.\.venv\Scripts\python.exe .\run_optimizer_simulator.py `
+	--markets crypto `
+	--target-days 5,10,15 `
+	--target-min-returns 0.015,0.03,0.05 `
+	--stop-loss-pcts 0.015,0.02,0.03 `
+	--start-date 2026-01-01 `
+	--end-date 2026-08-15 `
+	--liquidation-date 2026-08-15 `
+	--initial-capital 1000 `
+	--max-positions 5 `
+	--top-models 3
+```
+
+## 3) Faster reruns without retraining
+
+If datasets/models are already generated and you want faster scenario sweeps:
+
+```powershell
+.\.venv\Scripts\python.exe .\run_optimizer_simulator.py --markets crypto --skip-pipeline
+```
+
+Outputs are written under:
+
+- `reportes/simulaciones_optimizer/simulacion_resumen_global.csv`
+- `reportes/simulaciones_optimizer/<market>/sim_*.csv`
+
+---
+
 # Disclaimer
 
 This software has been developed exclusively for educational and research purposes.
