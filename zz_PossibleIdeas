@@ -93,6 +93,13 @@ Tiny Ticket Value (Under $10)
 
 
 
+#-************** HECHO
+Incluir Stop Loss en el Otpimizador
+
+#*************** HECHO
+Otpimizador que calule cual es el target en dias y el target de incremento valor que mejor optimiza el resultado
+
 #******************************
+HECHO
 Actualmente solo esta mirando lo que pasa al dia 5  (valor hoy - valor 5 dias atras. Pero e realidad, si la accion subio un xx% (el target) tambien sirve, porque la ccion de hecho sube independientemente que despues baje
                                                      )
