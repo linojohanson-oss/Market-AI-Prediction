@@ -136,6 +136,27 @@ def ejecutar_pipeline(mercado="merval"):
     log(f"Descripción   : {market.description}", level="INFO", info_verbosity=2)
     log(f"Activos       : {len(market.tickers)}", level="INFO", info_verbosity=2)
     log(f"Target        : {market.target_days} días", level="INFO", info_verbosity=2)
+    target_days = int(market.target_days)
+    target_min_return = get_json_config_value(
+        "pipeline.target_min_return",
+        get_json_config_value(f"pipeline.target_min_return_{target_days}d", 0.0),
+    )
+    try:
+        target_min_return = float(target_min_return)
+    except Exception:
+        target_min_return = 0.0
+
+    stop_loss_level = get_json_config_value(
+        f"portfolio.markets.{market.market}.stop_loss_pct",
+        get_json_config_value("portfolio.stop_loss_pct", 0.0),
+    )
+    try:
+        stop_loss_level = float(stop_loss_level)
+    except Exception:
+        stop_loss_level = 0.0
+
+    log(f"Target min %+ : {target_min_return * 100:.2f}%", level="INFO", info_verbosity=2)
+    log(f"Stop loss     : {stop_loss_level * 100:.2f}%", level="INFO", info_verbosity=2)
     if market.period_was_adjusted:
         log(f"Periodo cfg   : {market.configured_period}", level="INFO", info_verbosity=2)
         log(f"Periodo usado : {market.effective_period}", level="INFO", info_verbosity=2)

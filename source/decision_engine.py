@@ -8,6 +8,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 
 from source.app_logger import log_print as print
+from source import portfolio_optimizer as optimizer
 
 from config import MarketConfig
 
@@ -236,6 +237,82 @@ def construir_justificacion(
     return " ".join(texto)
 
 
+def evaluar_lineamiento_optimizer(nombre_mercado, ranking, politica):
+    params = optimizer.cargar_parametros_portfolio(nombre_mercado)
+    decision_base = {
+        "Max_Posiciones": int(politica.get("max_posiciones", 0)),
+        "Fecha": datetime.now().strftime("%Y-%m-%d"),
+    }
+
+    cartera_actual, cash_actual, capital_total = optimizer.construir_estado_actual(
+        nombre_mercado,
+        ranking,
+        params,
+    )
+
+    cartera_objetivo = optimizer.construir_cartera_objetivo(
+        decision=decision_base,
+        ranking=ranking,
+        cartera_actual=cartera_actual,
+        params=params,
+        nombre_mercado=nombre_mercado,
+    )
+
+    plan = optimizer.generar_plan_rebalanceo(
+        cartera_objetivo=cartera_objetivo,
+        cartera_actual=cartera_actual,
+        ranking=ranking,
+        params=params,
+        capital_total=capital_total,
+        nombre_mercado=nombre_mercado,
+        cash_actual=cash_actual,
+    )
+
+    if plan.empty:
+        return {
+            "decision": "ESPERAR",
+            "trades_ejecutables": 0,
+            "compras_ejecutables": 0,
+            "ventas_ejecutables": 0,
+            "stop_loss_activados": 0,
+            "top_accion": "NONE",
+            "top_ticker": "",
+            "top_motivo": "Sin plan de rebalanceo sugerido.",
+        }
+
+    ejecutables = plan[
+        (plan["Ejecutar"] == True) & (plan["Accion_Sugerida"] != "HOLD")  # noqa: E712
+    ].copy()
+
+    if ejecutables.empty:
+        return {
+            "decision": "ESPERAR",
+            "trades_ejecutables": 0,
+            "compras_ejecutables": 0,
+            "ventas_ejecutables": 0,
+            "stop_loss_activados": 0,
+            "top_accion": "NONE",
+            "top_ticker": "",
+            "top_motivo": "Ningún cambio supera el umbral neto luego de costos.",
+        }
+
+    compras = int((ejecutables["Accion_Deseada"] == "BUY").sum())
+    ventas = int((ejecutables["Accion_Deseada"] == "SELL").sum())
+    stop_loss = int(ejecutables["Stop_Loss_Triggered"].fillna(False).sum())
+    top_row = ejecutables.iloc[0]
+
+    return {
+        "decision": "OPERAR",
+        "trades_ejecutables": int(len(ejecutables)),
+        "compras_ejecutables": compras,
+        "ventas_ejecutables": ventas,
+        "stop_loss_activados": stop_loss,
+        "top_accion": str(top_row.get("Accion_Sugerida", "")),
+        "top_ticker": str(top_row.get("Ticker", "")),
+        "top_motivo": str(top_row.get("Motivo", "")),
+    }
+
+
 def generar_decision(nombre_mercado="merval"):
     inicio = datetime.now()
 
@@ -276,6 +353,11 @@ def generar_decision(nombre_mercado="merval"):
         candidatos=candidatos,
         indice=indice
     )
+    resumen_optimizer = evaluar_lineamiento_optimizer(
+        nombre_mercado=market.market,
+        ranking=ranking,
+        politica=politica,
+    )
 
     resultado = {
         "Fecha": regimen["Fecha"],
@@ -286,13 +368,21 @@ def generar_decision(nombre_mercado="merval"):
         "Semaforo": emoji,
         "Estado": estado,
         "Nivel_Riesgo": politica["nivel_riesgo"],
-        "Decision": politica["accion_principal"],
+        "Decision": resumen_optimizer["decision"],
+        "Decision_Politica": politica["accion_principal"],
         "Cash_pct": politica["cash_pct"],
         "Acciones_pct": politica["acciones_pct"],
         "Max_Posiciones": politica["max_posiciones"],
         "Stop_Loss": politica["stop_loss"],
         "Take_Profit": politica["take_profit"],
         "Rebalanceo": politica["rebalanceo"],
+        "Trades_Ejecutables": resumen_optimizer["trades_ejecutables"],
+        "Compras_Ejecutables": resumen_optimizer["compras_ejecutables"],
+        "Ventas_Ejecutables": resumen_optimizer["ventas_ejecutables"],
+        "Stop_Loss_Activados": resumen_optimizer["stop_loss_activados"],
+        "Top_Accion_Optimizer": resumen_optimizer["top_accion"],
+        "Top_Ticker_Optimizer": resumen_optimizer["top_ticker"],
+        "Motivo_Optimizer": resumen_optimizer["top_motivo"],
         "Activos_Aptos": len(candidatos),
         "Mejor_Ticker": mejor["ticker"],
         "Mejor_Activo": mejor["nombre"],
@@ -333,13 +423,25 @@ def generar_decision(nombre_mercado="merval"):
         f.write("POLÍTICA APLICADA\n")
         f.write("-" * 80 + "\n")
 
-        f.write(f"Decisión              : {resultado['Decision']}\n")
+        f.write(f"Decisión (optimizer)  : {resultado['Decision']}\n")
+        f.write(f"Decisión (política)   : {resultado['Decision_Politica']}\n")
         f.write(f"Cash recomendado      : {resultado['Cash_pct']} %\n")
         f.write(f"Capital en activos    : {resultado['Acciones_pct']} %\n")
         f.write(f"Máximo posiciones     : {resultado['Max_Posiciones']}\n")
         f.write(f"Stop Loss             : {resultado['Stop_Loss']} %\n")
         f.write(f"Take Profit           : {resultado['Take_Profit']} %\n")
         f.write(f"Rebalanceo            : {resultado['Rebalanceo']}\n\n")
+
+        f.write("-" * 80 + "\n")
+        f.write("LINEAMIENTO OPTIMIZER (SIMULACIÓN)\n")
+        f.write("-" * 80 + "\n")
+        f.write(f"Trades ejecutables    : {resultado['Trades_Ejecutables']}\n")
+        f.write(f"Compras ejecutables   : {resultado['Compras_Ejecutables']}\n")
+        f.write(f"Ventas ejecutables    : {resultado['Ventas_Ejecutables']}\n")
+        f.write(f"Stops activados       : {resultado['Stop_Loss_Activados']}\n")
+        f.write(f"Top acción sugerida   : {resultado['Top_Accion_Optimizer']}\n")
+        f.write(f"Top ticker sugerido   : {resultado['Top_Ticker_Optimizer']}\n")
+        f.write(f"Motivo top            : {resultado['Motivo_Optimizer']}\n\n")
 
         f.write("-" * 80 + "\n")
         f.write("MEJOR ACTIVO RELATIVO\n")
@@ -369,10 +471,16 @@ def generar_decision(nombre_mercado="merval"):
     print(f"Market AI Index      : {resultado['Market_AI_Index']}")
     print(f"Semáforo             : {resultado['Semaforo']} {resultado['Estado']}")
     print()
-    print(f"DECISIÓN             : {resultado['Decision']}")
+    print(f"DECISIÓN             : {resultado['Decision']} (lineamiento optimizer)")
+    print(f"Decisión política    : {resultado['Decision_Politica']}")
     print(f"Cash                 : {resultado['Cash_pct']} %")
     print(f"Activos              : {resultado['Acciones_pct']} %")
     print(f"Máx. posiciones      : {resultado['Max_Posiciones']}")
+    print(f"Trades ejecutables   : {resultado['Trades_Ejecutables']}")
+    print(f"Compras/Ventas       : {resultado['Compras_Ejecutables']}/{resultado['Ventas_Ejecutables']}")
+    print(f"Stops activados      : {resultado['Stop_Loss_Activados']}")
+    print(f"Top acción/ticker    : {resultado['Top_Accion_Optimizer']} / {resultado['Top_Ticker_Optimizer']}")
+    print(f"Motivo optimizer     : {resultado['Motivo_Optimizer']}")
     print()
     print("MEJOR ACTIVO")
     print("-" * 40)

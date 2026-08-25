@@ -60,7 +60,7 @@
     "alpha_per_score_point_pct": 0.03,
     "min_edge_buffer_pct": 0.2,
     "min_trade_value": 150.0,
-    "stop_loss_pct": 0.015,
+    "stop_loss_pct": 0.02,
     "markets": {
       "crypto": {
         "capital_inicial": 475.0,
@@ -72,27 +72,22 @@
           "fixed_cost_per_trade": 0.0
         },
         "current_positions": {
-          "cash": 0.77,
+          "cash": 166.20,
           "positions": [
             {
-              "ticker": "BNB-USDT",
-              "quantity": 0.24580593,
-              "avg_price": 611
-            },
-            {
-              "ticker": "ATOM-USDT",
-              "quantity": 94.34,
-              "avg_price": 1.59
-            },
-            {
-              "ticker": "LPT-USDT",
-              "quantity": 107.6,
-              "avg_price": 1.394
+              "ticker": "ETH-USDT",
+              "quantity": 0.0606,
+              "avg_price": 2474.50
             },
             {
               "ticker": "SHIB-USDT",
               "quantity": 15454545,
               "avg_price": 0.0000055
+            },
+            {
+              "ticker": "LINK-USDT",
+              "quantity": 12.84,
+              "avg_price": 11.685
             }
           ]
         }
