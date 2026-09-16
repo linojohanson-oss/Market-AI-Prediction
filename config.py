@@ -38,13 +38,13 @@ SUPPORTED_MARKETS = [
 
 
 # ============================================================
-# CONFIGURACIÓN DE MERCADOS
+# CONFIGURACIÃ“N DE MERCADOS
 # ============================================================
 
 MARKET_DEFINITIONS = {
     "merval": {
         "display_name": "MERVAL",
-        "description": "Acciones líderes del mercado argentino",
+        "description": "Acciones lÃ­deres del mercado argentino",
         "currency": "ARS",
         "timezone": "America/Argentina/Buenos_Aires",
         "benchmark": "^MERV",
@@ -56,7 +56,7 @@ MARKET_DEFINITIONS = {
         "symbols": {
             "GGAL.BA": "Grupo Financiero Galicia",
             "YPFD.BA": "YPF",
-            "PAMP.BA": "Pampa Energía",
+            "PAMP.BA": "Pampa EnergÃ­a",
             "ALUA.BA": "Aluar",
             "BBAR.BA": "Banco BBVA Argentina",
             "BMA.BA": "Banco Macro",
@@ -79,19 +79,19 @@ MARKET_DEFINITIONS = {
             "BBAR.BA": "Bancos",
             "BMA.BA": "Bancos",
             "SUPV.BA": "Bancos",
-            "YPFD.BA": "Energía",
-            "PAMP.BA": "Energía",
-            "CEPU.BA": "Energía",
-            "EDN.BA": "Energía",
-            "TGNO4.BA": "Energía",
-            "TGSU2.BA": "Energía",
-            "TRAN.BA": "Energía",
+            "YPFD.BA": "EnergÃ­a",
+            "PAMP.BA": "EnergÃ­a",
+            "CEPU.BA": "EnergÃ­a",
+            "EDN.BA": "EnergÃ­a",
+            "TGNO4.BA": "EnergÃ­a",
+            "TGSU2.BA": "EnergÃ­a",
+            "TRAN.BA": "EnergÃ­a",
             "ALUA.BA": "Industria",
             "TXAR.BA": "Industria",
-            "LOMA.BA": "Construcción",
+            "LOMA.BA": "ConstrucciÃ³n",
             "CRES.BA": "Real Estate",
             "COME.BA": "Holding",
-            "MIRG.BA": "Tecnología / Consumo",
+            "MIRG.BA": "TecnologÃ­a / Consumo",
             "TECO2.BA": "Telecomunicaciones",
             "VALO.BA": "Financiero",
         },
@@ -99,7 +99,7 @@ MARKET_DEFINITIONS = {
 
     "crypto": {
         "display_name": "CRYPTO",
-        "description": "Principales criptomonedas por capitalización y liquidez",
+        "description": "Principales criptomonedas por capitalizaciÃ³n y liquidez",
         "currency": "USD",
         "timezone": "UTC",
         "benchmark": "BTC-USD",
@@ -129,14 +129,14 @@ MARKET_DEFINITIONS = {
             "ADA-USD": "Smart Contracts",
             "DOGE-USD": "Meme / Comunidad",
             "AVAX-USD": "Smart Contracts",
-            "LINK-USD": "Oráculos",
+            "LINK-USD": "OrÃ¡culos",
             "DOT-USD": "Interoperabilidad",
         },
     },
 
     "nasdaq": {
         "display_name": "NASDAQ",
-        "description": "Acciones tecnológicas líderes de Estados Unidos",
+        "description": "Acciones tecnolÃ³gicas lÃ­deres de Estados Unidos",
         "currency": "USD",
         "timezone": "America/New_York",
         "benchmark": "^IXIC",
@@ -158,13 +158,13 @@ MARKET_DEFINITIONS = {
             "INTC": "Intel",
         },
         "sectors": {
-            "AAPL": "Tecnología",
-            "MSFT": "Tecnología",
+            "AAPL": "TecnologÃ­a",
+            "MSFT": "TecnologÃ­a",
             "NVDA": "Semiconductores",
             "AMZN": "Consumo / Cloud",
-            "GOOGL": "Tecnología / Publicidad",
-            "META": "Tecnología / Redes",
-            "TSLA": "Autos / Tecnología",
+            "GOOGL": "TecnologÃ­a / Publicidad",
+            "META": "TecnologÃ­a / Redes",
+            "TSLA": "Autos / TecnologÃ­a",
             "NFLX": "Streaming",
             "AMD": "Semiconductores",
             "INTC": "Semiconductores",
@@ -173,7 +173,7 @@ MARKET_DEFINITIONS = {
 
     "cedears": {
         "display_name": "CEDEARS",
-        "description": "Certificados de Depósito Argentinos",
+        "description": "Certificados de DepÃ³sito Argentinos",
         "currency": "ARS",
         "timezone": "America/Argentina/Buenos_Aires",
         "benchmark": "^MERV",
@@ -182,8 +182,30 @@ MARKET_DEFINITIONS = {
         "interval": "1d",
         "source": "yfinance",
         "calendar": "BYMA",
-        "symbols": {},
-        "sectors": {},
+                "symbols": {
+            "AAPL.BA": "Apple",
+            "MSFT.BA": "Microsoft",
+            "NVDA.BA": "NVIDIA",
+            "GOOGL.BA": "Alphabet",
+            "AMZN.BA": "Amazon",
+            "META.BA": "Meta Platforms",
+            "TSLA.BA": "Tesla",
+            "AMD.BA": "AMD",
+            "NFLX.BA": "Netflix",
+            "KO.BA": "Coca-Cola",
+        },
+        "sectors": {
+            "AAPL.BA": "Tecnologia",
+            "MSFT.BA": "Tecnologia",
+            "NVDA.BA": "Semiconductores",
+            "GOOGL.BA": "Tecnologia / Comunicaciones",
+            "AMZN.BA": "Consumo / Tecnologia",
+            "META.BA": "Tecnologia / Redes",
+            "TSLA.BA": "Autos / Tecnologia",
+            "AMD.BA": "Semiconductores",
+            "NFLX.BA": "Streaming",
+            "KO.BA": "Consumo defensivo",
+        },
     },
 
     "etf": {
@@ -246,11 +268,11 @@ MARKET_DEFINITIONS = {
         "symbols": {
             "GC=F": "Oro",
             "SI=F": "Plata",
-            "CL=F": "Petróleo WTI",
-            "BZ=F": "Petróleo Brent",
+            "CL=F": "PetrÃ³leo WTI",
+            "BZ=F": "PetrÃ³leo Brent",
             "NG=F": "Gas Natural",
             "HG=F": "Cobre",
-            "ZC=F": "Maíz",
+            "ZC=F": "MaÃ­z",
             "ZS=F": "Soja",
             "ZW=F": "Trigo",
         },
@@ -281,7 +303,7 @@ MARKET_DEFINITIONS = {
 
     "indices": {
         "display_name": "INDICES",
-        "description": "Índices globales y variables de contexto",
+        "description": "Ãndices globales y variables de contexto",
         "currency": "USD",
         "timezone": "UTC",
         "benchmark": "^GSPC",
@@ -299,7 +321,7 @@ MARKET_DEFINITIONS = {
             "^VIX": "VIX",
             "DX-Y.NYB": "DXY",
             "GC=F": "Oro",
-            "CL=F": "Petróleo WTI",
+            "CL=F": "PetrÃ³leo WTI",
             "BTC-USD": "Bitcoin",
         },
         "sectors": {},
@@ -323,7 +345,7 @@ class MarketConfig:
         if market not in MARKET_DEFINITIONS:
             raise ValueError(
                 f"Mercado no soportado: {market}. "
-                f"Opciones válidas: {', '.join(SUPPORTED_MARKETS)}"
+                f"Opciones vÃ¡lidas: {', '.join(SUPPORTED_MARKETS)}"
             )
 
         self.market = market
@@ -444,7 +466,7 @@ class MarketConfig:
         return LOGS_BASE / self.market
 
     # -------------------------
-    # Archivos estándar
+    # Archivos estÃ¡ndar
     # -------------------------
 
     @property
@@ -552,7 +574,7 @@ class MarketConfig:
         return self.trained_models_dir / "features_avanzadas.pkl"
 
     # -------------------------
-    # Métodos
+    # MÃ©todos
     # -------------------------
 
     def _crear_directorios(self):
@@ -587,11 +609,11 @@ class MarketConfig:
         print(f"MARKET CONFIG - {self.display_name}")
         print("=" * 70)
         print(f"Mercado       : {self.market}")
-        print(f"Descripción   : {self.description}")
+        print(f"DescripciÃ³n   : {self.description}")
         print(f"Moneda        : {self.currency}")
         print(f"Zona horaria  : {self.timezone}")
         print(f"Benchmark     : {self.benchmark}")
-        print(f"Target días   : {self.target_days}")
+        print(f"Target dÃ­as   : {self.target_days}")
         print(f"Periodo       : {self.period}")
         print(f"Intervalo     : {self.interval}")
         print(f"Fuente        : {self.source}")
@@ -604,7 +626,7 @@ class MarketConfig:
         print(f"Procesados    : {self.processed_dir}")
         print(f"Modelos       : {self.model_dir}")
         print(f"Reportes      : {self.report_dir}")
-        print(f"Gráficos      : {self.charts_dir}")
+        print(f"GrÃ¡ficos      : {self.charts_dir}")
         print(f"Dashboard     : {self.dashboard_dir}")
 
 
@@ -617,7 +639,7 @@ ACTIVE_MARKET = MarketConfig(DEFAULT_MARKET)
 
 
 # ============================================================
-# COMPATIBILIDAD TEMPORAL CON CÓDIGO VIEJO
+# COMPATIBILIDAD TEMPORAL CON CÃ“DIGO VIEJO
 # ============================================================
 
 # Aliases principales
@@ -642,7 +664,7 @@ MODELOS_METRICAS = ACTIVE_MARKET.metrics_dir
 GRAFICOS = ACTIVE_MARKET.charts_dir
 GRAFICOS.mkdir(parents=True, exist_ok=True)
 
-# Macro / índices globales
+# Macro / Ã­ndices globales
 MACRO = DATOS_BASE / "indices" / "brutos"
 MACRO.mkdir(parents=True, exist_ok=True)
 

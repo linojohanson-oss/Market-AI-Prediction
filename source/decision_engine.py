@@ -39,7 +39,7 @@ def verificar_archivos(rutas):
         raise FileNotFoundError(f"No existe ranking diario: {rutas['ranking']}")
 
     if not rutas["regime"].exists():
-        raise FileNotFoundError(f"No existe régimen de mercado: {rutas['regime']}")
+        raise FileNotFoundError(f"No existe regimen de mercado: {rutas['regime']}")
 
 
 def cargar_ranking(rutas):
@@ -57,14 +57,14 @@ def obtener_columna_probabilidad(ranking):
     if "Prob_IA" in ranking.columns:
         return "Prob_IA"
 
-    raise ValueError("No se encontró columna de probabilidad en ranking.")
+    raise ValueError("No se encontro columna de probabilidad en ranking.")
 
 
 def obtener_columna_score(ranking):
     if "Score_Final" in ranking.columns:
         return "Score_Final"
 
-    raise ValueError("No se encontró columna Score_Final en ranking.")
+    raise ValueError("No se encontro columna Score_Final en ranking.")
 
 
 def calcular_market_ai_index(ranking, regimen, politica):
@@ -96,15 +96,15 @@ def calcular_market_ai_index(ranking, regimen, politica):
 
 def obtener_semaforo(indice):
     if indice >= 80:
-        return "🟢", "EXCELENTE"
+        return "VERDE", "EXCELENTE"
 
     if indice >= 60:
-        return "🟡", "FAVORABLE"
+        return "AMARILLO", "FAVORABLE"
 
     if indice >= 40:
-        return "🟠", "PRECAUCIÓN"
+        return "NARANJA", "PRECAUCION"
 
-    return "🔴", "RIESGO ALTO"
+    return "ROJO", "RIESGO ALTO"
 def obtener_mejor_activo(ranking):
     score_col = obtener_columna_score(ranking)
     prob_col = obtener_columna_probabilidad(ranking)
@@ -166,7 +166,7 @@ def construir_justificacion(
     )
 
     texto.append(
-        f"Régimen detectado: {regimen['Regimen']}."
+        f"Regimen detectado: {regimen['Regimen']}."
     )
 
     texto.append(
@@ -174,7 +174,7 @@ def construir_justificacion(
     )
 
     texto.append(
-        f"Nivel de riesgo de la política: {politica['nivel_riesgo']}/100."
+        f"Nivel de riesgo de la politica: {politica['nivel_riesgo']}/100."
     )
 
     texto.append(
@@ -194,24 +194,24 @@ def construir_justificacion(
     )
 
     texto.append(
-        f"Señales de compra: {compras}."
+        f"Senales de compra: {compras}."
     )
 
     texto.append(
-        f"Señales de evitar: {evitar}."
+        f"Senales de evitar: {evitar}."
     )
 
     texto.append(
-        f"Activos aptos según política: {len(candidatos)}."
+        f"Activos aptos segun politica: {len(candidatos)}."
     )
 
     if len(candidatos) == 0:
         texto.append(
-            "Ningún activo supera simultáneamente los mínimos exigidos por la política."
+            "Ningun activo supera simultaneamente los minimos exigidos por la politica."
         )
     else:
         texto.append(
-            "Existen activos que cumplen las condiciones mínimas de inversión."
+            "Existen activos que cumplen las condiciones minimas de inversion."
         )
 
     return " ".join(texto)
@@ -302,19 +302,19 @@ def generar_decision(nombre_mercado="merval"):
 
         f.write(f"Fecha                 : {resultado['Fecha']}\n")
         f.write(f"Mercado               : {resultado['Mercado_Display']}\n")
-        f.write(f"Régimen               : {resultado['Regimen']}\n")
+        f.write(f"Regimen               : {resultado['Regimen']}\n")
         f.write(f"Market AI Index       : {resultado['Market_AI_Index']}/100\n")
-        f.write(f"Semáforo              : {resultado['Semaforo']} {resultado['Estado']}\n")
+        f.write(f"Semaforo              : {resultado['Semaforo']} {resultado['Estado']}\n")
         f.write(f"Nivel Riesgo          : {resultado['Nivel_Riesgo']}/100\n\n")
 
         f.write("-" * 80 + "\n")
-        f.write("POLÍTICA APLICADA\n")
+        f.write("POLITICA APLICADA\n")
         f.write("-" * 80 + "\n")
 
-        f.write(f"Decisión              : {resultado['Decision']}\n")
+        f.write(f"Decision              : {resultado['Decision']}\n")
         f.write(f"Cash recomendado      : {resultado['Cash_pct']} %\n")
         f.write(f"Capital en activos    : {resultado['Acciones_pct']} %\n")
-        f.write(f"Máximo posiciones     : {resultado['Max_Posiciones']}\n")
+        f.write(f"Maximo posiciones     : {resultado['Max_Posiciones']}\n")
         f.write(f"Stop Loss             : {resultado['Stop_Loss']} %\n")
         f.write(f"Take Profit           : {resultado['Take_Profit']} %\n")
         f.write(f"Rebalanceo            : {resultado['Rebalanceo']}\n\n")
@@ -331,26 +331,26 @@ def generar_decision(nombre_mercado="merval"):
         f.write(f"Activos aptos         : {resultado['Activos_Aptos']}\n\n")
 
         f.write("-" * 80 + "\n")
-        f.write("JUSTIFICACIÓN\n")
+        f.write("JUSTIFICACION\n")
         f.write("-" * 80 + "\n")
         f.write(resultado["Justificacion"])
         f.write("\n")
 
     print()
     print("=" * 80)
-    print("DECISIÓN DEL SISTEMA")
+    print("DECISION DEL SISTEMA")
     print("=" * 80)
 
     print(f"Fecha                : {resultado['Fecha']}")
     print(f"Mercado              : {resultado['Mercado_Display']}")
-    print(f"Régimen              : {resultado['Regimen']}")
+    print(f"Regimen              : {resultado['Regimen']}")
     print(f"Market AI Index      : {resultado['Market_AI_Index']}")
-    print(f"Semáforo             : {resultado['Semaforo']} {resultado['Estado']}")
+    print(f"Semaforo             : {resultado['Semaforo']} {resultado['Estado']}")
     print()
-    print(f"DECISIÓN             : {resultado['Decision']}")
+    print(f"DECISION             : {resultado['Decision']}")
     print(f"Cash                 : {resultado['Cash_pct']} %")
     print(f"Activos              : {resultado['Acciones_pct']} %")
-    print(f"Máx. posiciones      : {resultado['Max_Posiciones']}")
+    print(f"Max. posiciones      : {resultado['Max_Posiciones']}")
     print()
     print("MEJOR ACTIVO")
     print("-" * 40)
@@ -360,7 +360,7 @@ def generar_decision(nombre_mercado="merval"):
     print(f"Señal                : {resultado['Señal']}")
     print(f"Activos Aptos        : {resultado['Activos_Aptos']}")
     print()
-    print("JUSTIFICACIÓN")
+    print("JUSTIFICACION")
     print("-" * 40)
     print(resultado["Justificacion"])
     print()
@@ -382,4 +382,7 @@ def generar_decision(nombre_mercado="merval"):
 
 
 if __name__ == "__main__":
-    generar_decision("crypto")
+    import sys
+
+    mercado = sys.argv[1].lower() if len(sys.argv) > 1 else "merval"
+    generar_decision(mercado)

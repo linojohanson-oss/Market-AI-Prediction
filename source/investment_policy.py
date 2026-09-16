@@ -1,19 +1,19 @@
-"""
+﻿"""
 =========================================================
 MARKET AI PREDICTION 2.0
 Investment Policy Engine
 =========================================================
 
-Este módulo define la política de inversión del sistema.
+Este modulo define la politica de inversion del sistema.
 
 NO contiene modelos de IA.
 NO contiene predicciones.
 
-Simplemente establece cómo debe actuar el sistema
-según el régimen detectado.
+Simplemente establece como debe actuar el sistema
+segun el regimen detectado.
 
-Toda modificación de la estrategia de inversión
-debe hacerse aquí.
+Toda modificacion de la estrategia de inversion
+debe hacerse aqui.
 
 =========================================================
 """
@@ -45,7 +45,7 @@ POLITICAS_INVERSION = {
 
         "descripcion":
             "Mercado alcista confirmado. "
-            "Se permite alta exposición en acciones."
+            "Se permite alta exposicion en acciones."
     },
 
     # =====================================================
@@ -70,7 +70,7 @@ POLITICAS_INVERSION = {
         "accion_principal": "COMPRAR SELECTIVO",
 
         "descripcion":
-            "Mercado lateral. Operar únicamente activos de alta calidad."
+            "Mercado lateral. Operar unicamente activos de alta calidad."
     },
 
     # =====================================================
@@ -96,12 +96,12 @@ POLITICAS_INVERSION = {
 
         "descripcion":
             "Mercado sin tendencia definida. "
-            "Mantener exposición reducida."
+            "Mantener exposicion reducida."
     },
 
     # =====================================================
 
-    "DÉBIL": {
+    "DEBIL": {
 
         "nivel_riesgo": 80,
 
@@ -121,8 +121,8 @@ POLITICAS_INVERSION = {
         "accion_principal": "ESPERAR",
 
         "descripcion":
-            "Mercado débil. "
-            "Sólo operar oportunidades excepcionales."
+            "Mercado debil. "
+            "Solo operar oportunidades excepcionales."
     },
 
     # =====================================================
@@ -155,7 +155,7 @@ POLITICAS_INVERSION = {
 
 
 # ==========================================================
-# Política por defecto
+# Politica por defecto
 # ==========================================================
 
 POLITICA_DEFAULT = {
@@ -178,7 +178,7 @@ POLITICA_DEFAULT = {
     "accion_principal": "ESPERAR",
 
     "descripcion":
-        "Régimen desconocido. Política defensiva aplicada."
+        "Regimen desconocido. Politica defensiva aplicada."
 }
 
 
@@ -186,7 +186,7 @@ POLITICA_DEFAULT = {
 
 def obtener_politica(regimen: str) -> dict:
     """
-    Devuelve la política correspondiente al régimen detectado.
+    Devuelve la politica correspondiente al regimen detectado.
     """
 
     return POLITICAS_INVERSION.get(regimen, POLITICA_DEFAULT)
@@ -196,7 +196,7 @@ def obtener_politica(regimen: str) -> dict:
 
 def listar_politicas():
     """
-    Devuelve todas las políticas disponibles.
+    Devuelve todas las politicas disponibles.
     """
 
     return POLITICAS_INVERSION

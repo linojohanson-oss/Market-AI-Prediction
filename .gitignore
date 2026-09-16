@@ -49,3 +49,18 @@ Thumbs.db
 datos local/
 modelos local/
 reportes local/
+
+# ==========================
+# Respaldos y parches locales ya integrados
+# ==========================
+_archive_legacy/
+market_model_manager_v3/
+market_scoring_final_v3_1/
+market_target5d_hotfix/
+market_temporal_v3/
+
+*_backup*.py
+*_pre_*.py
+
+# Reportes locales de ejecución
+global_investment_report_actual.txt

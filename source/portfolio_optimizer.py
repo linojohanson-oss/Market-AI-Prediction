@@ -1,4 +1,4 @@
-# portfolio_optimizer.py
+﻿# portfolio_optimizer.py
 
 import sys
 from pathlib import Path
@@ -135,15 +135,18 @@ def factor_senal(senal):
 
 def seleccionar_activos(decision, ranking):
     max_posiciones = int(decision.get("Max_Posiciones", 0))
+    activos_aptos = int(decision.get("Activos_Aptos", 0))
 
-    if max_posiciones <= 0:
+    # Si Decision Engine determina que no hay activos aptos,
+    # Portfolio Optimizer no debe forzar posiciones.
+    if max_posiciones <= 0 or activos_aptos <= 0:
         return pd.DataFrame()
 
     ranking = ranking.copy()
 
     if "Señal" in ranking.columns:
         ranking = ranking[
-            ranking["Señal"].isin(["COMPRA FUERTE", "COMPRA", "VIGILAR"])
+            ranking["Señal"].isin(["COMPRA FUERTE", "COMPRA"])
         ].copy()
 
     if ranking.empty:
@@ -169,11 +172,13 @@ def seleccionar_activos(decision, ranking):
 
     ranking["score_ajustado"] = ranking["score_ajustado"].clip(lower=0)
 
+    limite = min(max_posiciones, activos_aptos)
+
     candidatos = ranking.sort_values("score_ajustado", ascending=False).head(
-        max(max_posiciones, TOP_CANDIDATOS_EXTRA)
+        max(limite, TOP_CANDIDATOS_EXTRA)
     )
 
-    return candidatos.head(max_posiciones).copy()
+    return candidatos.head(limite).copy()
 
 
 def limitar_concentracion(pesos):
@@ -231,8 +236,9 @@ def distribuir_capital(decision, cartera):
     capital_cash = CAPITAL_INICIAL * cash_pct / 100
     capital_activos = CAPITAL_INICIAL * activos_pct / 100
 
+    # Si no hay posiciones, todo el capital queda liquido.
     if cartera.empty:
-        return cartera, round(capital_cash, 2), round(capital_activos, 2)
+        return cartera, round(CAPITAL_INICIAL, 2), 0.0
 
     cartera = cartera.copy()
     cartera["Capital"] = capital_activos * cartera["Porcentaje"] / 100
@@ -270,7 +276,7 @@ def construir_portafolio(nombre_mercado="merval"):
         "score_ajustado",
         "riesgo_norm",
         "momentum_norm",
-        "Señal",
+        "SeÃ±al",
         "Porcentaje",
         "Capital",
     ]
@@ -282,7 +288,7 @@ def construir_portafolio(nombre_mercado="merval"):
             "Ticker",
             "Nombre",
             "Score_Final",
-            "Señal",
+            "SeÃ±al",
             "Porcentaje",
             "Capital",
         ])
@@ -299,8 +305,8 @@ def construir_portafolio(nombre_mercado="merval"):
 
         f.write(f"Fecha                 : {decision.get('Fecha', '')}\n")
         f.write(f"Mercado               : {market.display_name}\n")
-        f.write(f"Régimen               : {decision.get('Regimen', '')}\n")
-        f.write(f"Decisión              : {decision.get('Decision', '')}\n")
+        f.write(f"RÃ©gimen               : {decision.get('Regimen', '')}\n")
+        f.write(f"DecisiÃ³n              : {decision.get('Decision', '')}\n")
         f.write(f"Capital Inicial       : ${CAPITAL_INICIAL:,.2f}\n")
         f.write(f"Cash                  : ${cash:,.2f}\n")
         f.write(f"Capital Activos       : ${invertido:,.2f}\n")
@@ -312,7 +318,7 @@ def construir_portafolio(nombre_mercado="merval"):
 
         if cartera.empty:
             f.write("No se recomienda abrir posiciones.\n")
-            f.write("Todo el capital permanece líquido según la política aplicada.\n")
+            f.write("Todo el capital permanece lÃ­quido segÃºn la polÃ­tica aplicada.\n")
         else:
             for _, row in cartera.iterrows():
                 f.write(
@@ -322,7 +328,7 @@ def construir_portafolio(nombre_mercado="merval"):
                     f"${row.get('Capital', 0):12,.2f} | "
                     f"Score {row.get('Score_Final', 0):6.2f} | "
                     f"Ajustado {row.get('score_ajustado', 0):6.3f} | "
-                    f"{row.get('Señal', '')}\n"
+                    f"{row.get('SeÃ±al', '')}\n"
                 )
 
     print()
@@ -339,7 +345,7 @@ def construir_portafolio(nombre_mercado="merval"):
 
     if cartera.empty:
         print("No se recomienda abrir posiciones.")
-        print("Todo el capital permanece líquido.")
+        print("Todo el capital permanece lÃ­quido.")
     else:
         mostrar = [
             "Ticker",
@@ -348,7 +354,7 @@ def construir_portafolio(nombre_mercado="merval"):
             "Capital",
             "Score_Final",
             "score_ajustado",
-            "Señal",
+            "SeÃ±al",
         ]
 
         mostrar = [c for c in mostrar if c in cartera.columns]

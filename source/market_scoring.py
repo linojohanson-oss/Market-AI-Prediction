@@ -21,8 +21,18 @@ def preparar_ultimos_datos(manager):
     df = manager.cargar_dataset()
     features = manager.cargar_features()
 
-    ultima_fecha = df["Date"].max()
-    ultimos = df[df["Date"] == ultima_fecha].copy()
+    # Cada activo puede tener una ultima fecha distinta.
+    # BTC cotiza fines de semana; los indices bursatiles no.
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+
+    ultimos = (
+        df.sort_values(["Ticker", "Date"])
+        .groupby("Ticker", group_keys=False)
+        .tail(1)
+        .copy()
+    )
+
+    ultima_fecha = ultimos["Date"].max()
 
     X = ultimos[features].copy()
     X.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -32,11 +42,31 @@ def preparar_ultimos_datos(manager):
 
 
 def probabilidad_modelo(modelo, X):
-    if hasattr(modelo, "predict_proba"):
-        return modelo.predict_proba(X)[:, 1]
+    """Devuelve un score probabilistico valido en el intervalo [0, 1].
 
-    pred = modelo.predict(X)
-    return pred.astype(float)
+    Los clasificadores con ``predict_proba`` conservan su probabilidad nativa.
+    Para modelos de margen (por ejemplo LinearSVC), transforma
+    ``decision_function`` con una sigmoide en lugar de reducir la salida a una
+    prediccion dura 0/1. La sigmoide no sustituye una calibracion estadistica,
+    pero mantiene el orden y evita votos artificialmente extremos.
+    """
+    if hasattr(modelo, "predict_proba"):
+        prob = np.asarray(modelo.predict_proba(X))[:, 1]
+    elif hasattr(modelo, "decision_function"):
+        margen = np.asarray(modelo.decision_function(X), dtype=float).reshape(-1)
+        margen = np.clip(margen, -50.0, 50.0)
+        prob = 1.0 / (1.0 + np.exp(-margen))
+    else:
+        prob = np.asarray(modelo.predict(X), dtype=float).reshape(-1)
+
+    if prob.shape[0] != len(X):
+        raise ValueError(
+            f"Salida de longitud {prob.shape[0]}; se esperaban {len(X)} filas."
+        )
+    if not np.isfinite(prob).all():
+        raise ValueError("El modelo produjo probabilidades NaN o infinitas.")
+
+    return np.clip(prob.astype(float), 0.0, 1.0)
 
 
 def convertir_a_score_relativo(matriz_probs):
@@ -80,7 +110,11 @@ def calcular_consenso(ultimos, modelos, X):
 
             ultimos[f"Prob_{nombre}"] = prob
 
-            print(f"{nombre:25} Peso: {peso:.4f}")
+            print(
+                f"{nombre:25} Peso crudo: {peso:.4f} | "
+                f"Prob min/media/max: "
+                f"{prob.min():.4f}/{prob.mean():.4f}/{prob.max():.4f}"
+            )
 
         except Exception as e:
             print(f"Error calculando probabilidad para {nombre}: {e}")
@@ -90,8 +124,26 @@ def calcular_consenso(ultimos, modelos, X):
 
     matriz_probs = np.vstack(matriz_probs).T
 
-    pesos = np.array(pesos)
-    pesos = pesos / pesos.sum()
+    pesos = np.asarray(pesos, dtype=float)
+    if not np.isfinite(pesos).all() or (pesos < 0).any():
+        raise RuntimeError("Los pesos del ensemble contienen valores invalidos.")
+
+    suma_pesos = pesos.sum()
+    if suma_pesos <= 0:
+        raise RuntimeError("La suma de pesos del ensemble debe ser positiva.")
+
+    pesos_crudos = pesos.copy()
+    pesos = pesos / suma_pesos
+
+    print("-" * 70)
+    print(f"Suma pesos Top-{len(pesos)} antes de normalizar: {suma_pesos:.6f}")
+    for nombre, peso_crudo, peso_normalizado in zip(
+        nombres, pesos_crudos, pesos
+    ):
+        print(
+            f"{nombre:25} Peso normalizado: {peso_normalizado:.4f} "
+            f"(crudo {peso_crudo:.4f})"
+        )
 
     consensus_probability = np.average(
         matriz_probs,
@@ -193,14 +245,33 @@ def calcular_score_tecnico(df):
     return df
 
 
-def clasificar_senal(df):
+def clasificar_senal(df, tasa_base):
     df = df.copy()
 
-    df["Score_Final"] = (
+    tasa_base = float(tasa_base)
+    df["Base_Rate"] = tasa_base
+    df["Probability_Edge"] = df["Consensus_Probability"] - tasa_base
+
+    df["Score_Final_Bruto"] = (
         df["Consensus_Score"] * 0.50
         + df["Score_Tecnico"] * 0.35
         + df["Agreement_Score"] * 0.15
     )
+
+    # El ranking relativo puede producir un score bruto muy alto aunque la
+    # ventaja absoluta sea pequeña. Limitamos la intensidad que verán los
+    # reportes sin alterar el orden relativo de las oportunidades.
+    limite_por_edge = np.select(
+        [
+            df["Probability_Edge"] < -0.01,
+            df["Probability_Edge"] < 0.00,
+            df["Probability_Edge"] < 0.01,
+            df["Probability_Edge"] < 0.03,
+        ],
+        [44.99, 49.99, 59.99, 69.99],
+        default=100.0,
+    )
+    df["Score_Final"] = np.minimum(df["Score_Final_Bruto"], limite_por_edge)
 
     df["Fortaleza_Senal"] = np.select(
         [
@@ -222,15 +293,17 @@ def clasificar_senal(df):
         [
             (df["Score_Final"] >= 75)
             & (df["Buy_Votes"] >= df["Models_Used"] * 0.60)
-            & (df["Consensus_Probability"] >= 0.10),
+            & (df["Probability_Edge"] >= 0.03),
 
             (df["Score_Final"] >= 65)
             & (df["Buy_Votes"] >= df["Models_Used"] * 0.50)
-            & (df["Consensus_Probability"] >= 0.07),
+            & (df["Probability_Edge"] >= 0.01),
 
-            df["Score_Final"] >= 55,
+            (df["Score_Final"] >= 55)
+            & (df["Probability_Edge"] >= 0.00),
 
-            df["Score_Final"] >= 45,
+            (df["Score_Final"] >= 45)
+            & (df["Probability_Edge"] >= -0.01),
         ],
         [
             "COMPRA FUERTE",
@@ -251,6 +324,8 @@ def ordenar_columnas(df):
         "Nombre",
         "Close",
         "Consensus_Probability",
+        "Base_Rate",
+        "Probability_Edge",
         "Consensus_Score",
         "Score_Relativo",
         "Score_Absoluto",
@@ -262,6 +337,7 @@ def ordenar_columnas(df):
         "Sell_Votes",
         "Models_Used",
         "Score_Tecnico",
+        "Score_Final_Bruto",
         "Score_Final",
         "Fortaleza_Senal",
         "Señal",
@@ -306,14 +382,24 @@ def generar_market_scoring(nombre_mercado="merval"):
     df, ultimos, X, ultima_fecha = preparar_ultimos_datos(manager)
     modelos = manager.cargar_modelos_ensemble()
 
+    if "positive_rate_true" in manager.metricas.columns:
+        tasa_base = float(
+            manager.metricas.loc[
+                manager.metricas["elegible"], "positive_rate_true"
+            ].median()
+        )
+    else:
+        tasa_base = 0.50
+
     print(f"Mercado        : {market.market}")
     print(f"Fecha scoring  : {ultima_fecha}")
     print(f"Activos        : {len(ultimos)}")
     print(f"Modelos base   : {len(modelos)}")
+    print(f"Tasa base 5d   : {tasa_base:.4f}")
 
     ultimos = calcular_consenso(ultimos, modelos, X)
     ultimos = calcular_score_tecnico(ultimos)
-    ultimos = clasificar_senal(ultimos)
+    ultimos = clasificar_senal(ultimos, tasa_base)
 
     ultimos.sort_values("Score_Final", ascending=False, inplace=True)
     ultimos.reset_index(drop=True, inplace=True)
@@ -334,6 +420,8 @@ def generar_market_scoring(nombre_mercado="merval"):
                 "Ticker",
                 "Close",
                 "Consensus_Probability",
+                "Base_Rate",
+                "Probability_Edge",
                 "Consensus_Score",
                 "Score_Relativo",
                 "Score_Absoluto",

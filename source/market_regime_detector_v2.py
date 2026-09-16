@@ -25,20 +25,20 @@ def clasificar_regimen(prob_media, prob_max, score_medio, compras, evitar, total
         return (
             "NEUTRAL",
             "VIGILAR",
-            "Mercado sin señal dominante. Conviene monitorear."
+            "Mercado sin senal dominante. Conviene monitorear."
         )
 
     if evitar_pct >= 0.60 or score_medio < 40:
         return (
             "BAJISTA / RIESGO ALTO",
             "ESPERAR / EVITAR COMPRAS",
-            "Mercado débil. Conviene priorizar liquidez y evitar nuevas compras."
+            "Mercado debil. Conviene priorizar liquidez y evitar nuevas compras."
         )
 
     return (
-        "DÉBIL",
+        "DEBIL",
         "ESPERAR",
-        "Mercado débil o mixto. Solo considerar oportunidades excepcionales."
+        "Mercado debil o mixto. Solo considerar oportunidades excepcionales."
     )
 
 
@@ -63,13 +63,13 @@ def generar_market_regime(nombre_mercado="merval"):
     elif "Prob_IA" in ranking.columns:
         prob_col = "Prob_IA"
     else:
-        raise ValueError("No se encontró columna de probabilidad.")
+        raise ValueError("No se encontro columna de probabilidad.")
 
     if "Score_Final" not in ranking.columns:
-        raise ValueError("No se encontró columna Score_Final.")
+        raise ValueError("No se encontro columna Score_Final.")
 
     if "Señal" not in ranking.columns:
-        raise ValueError("No se encontró columna Señal.")
+        raise ValueError("No se encontro columna Señal.")
 
     fecha = ranking["Date"].max() if "Date" in ranking.columns else datetime.now().date()
 
@@ -115,12 +115,12 @@ def generar_market_regime(nombre_mercado="merval"):
 
         f.write(f"Fecha              : {fecha}\n")
         f.write(f"Mercado            : {market.display_name}\n")
-        f.write(f"Régimen            : {regimen}\n")
-        f.write(f"Acción recomendada : {accion}\n")
-        f.write(f"Descripción        : {descripcion}\n\n")
+        f.write(f"Regimen            : {regimen}\n")
+        f.write(f"Accion recomendada : {accion}\n")
+        f.write(f"Descripcion        : {descripcion}\n\n")
 
         f.write(f"Prob media         : {prob_media:.4f}\n")
-        f.write(f"Prob máxima        : {prob_max:.4f}\n")
+        f.write(f"Prob maxima        : {prob_max:.4f}\n")
         f.write(f"Score medio        : {score_medio:.2f}\n")
         f.write(f"Compras            : {compras}\n")
         f.write(f"Evitar             : {evitar}\n")
@@ -131,16 +131,16 @@ def generar_market_regime(nombre_mercado="merval"):
     print("=" * 80)
     print()
     print("=" * 80)
-    print("RÉGIMEN DETECTADO")
+    print("REGIMEN DETECTADO")
     print("=" * 80)
     print(f"Fecha              : {fecha}")
     print(f"Mercado            : {market.display_name}")
-    print(f"Régimen            : {regimen}")
-    print(f"Acción recomendada : {accion}")
-    print(f"Descripción        : {descripcion}")
+    print(f"Regimen            : {regimen}")
+    print(f"Accion recomendada : {accion}")
+    print(f"Descripcion        : {descripcion}")
     print()
     print(f"Prob media         : {prob_media:.4f}")
-    print(f"Prob máxima        : {prob_max:.4f}")
+    print(f"Prob maxima        : {prob_max:.4f}")
     print(f"Score medio        : {score_medio:.2f}")
     print(f"Compras            : {compras}")
     print(f"Evitar             : {evitar}")
@@ -157,4 +157,7 @@ def detectar_regimen_mercado(nombre_mercado="merval"):
 
 
 if __name__ == "__main__":
-    generar_market_regime("crypto")
+    import sys
+
+    mercado = sys.argv[1].lower() if len(sys.argv) > 1 else "merval"
+    generar_market_regime(mercado)

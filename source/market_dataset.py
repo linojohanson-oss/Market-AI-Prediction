@@ -121,6 +121,20 @@ def generar_dataset_ia(nombre_mercado="merval"):
 
     df, columnas_contexto = integrar_contexto(df, contexto)
 
+    if "Future_Return_5d" not in df.columns:
+        raise ValueError(
+            "No existe Future_Return_5d; no es posible validar Objetivo_5d."
+        )
+
+    # Segunda barrera contra etiquetas futuras falsas. Las filas recientes se
+    # conservan para el scoring, pero su objetivo permanece NaN hasta que
+    # existan cinco ruedas posteriores reales.
+    mascara_sin_futuro = df["Future_Return_5d"].isna()
+    targets_corregidos = int(
+        (mascara_sin_futuro & df[TARGET_PRINCIPAL].notna()).sum()
+    )
+    df.loc[mascara_sin_futuro, TARGET_PRINCIPAL] = np.nan
+
     dataset = limpiar_targets_futuros(df)
 
     if TARGET_PRINCIPAL not in dataset.columns:
@@ -144,7 +158,6 @@ def generar_dataset_ia(nombre_mercado="merval"):
     ]
 
     dataset.replace([np.inf, -np.inf], np.nan, inplace=True)
-    dataset = dataset.dropna(subset=["Objetivo_5d"])
 
     dataset = (
         dataset
@@ -161,10 +174,25 @@ def generar_dataset_ia(nombre_mercado="merval"):
 
     dataset.sort_values(["Ticker", "Date"], inplace=True)
 
+    # Las cinco observaciones más recientes de cada ticker deben permanecer
+    # disponibles para inferencia, siempre sin etiqueta conocida.
+    ultimas_cinco = (
+        dataset.sort_values(["Ticker", "Date"])
+        .groupby("Ticker", group_keys=False)
+        .tail(5)
+    )
+    if ultimas_cinco["Objetivo_5d"].notna().any():
+        raise RuntimeError(
+            "Control fallido: existen targets conocidos dentro de las últimas "
+            "cinco ruedas de algún ticker."
+        )
+
     dataset.to_csv(market.dataset_csv, index=False, encoding="utf-8-sig")
     dataset.to_excel(market.dataset_excel, index=False)
 
     objetivo_pct = dataset["Objetivo_5d"].mean()
+    filas_etiquetadas = int(dataset["Objetivo_5d"].notna().sum())
+    filas_pendientes = int(dataset["Objetivo_5d"].isna().sum())
 
     print()
     print("=" * 70)
@@ -175,6 +203,9 @@ def generar_dataset_ia(nombre_mercado="merval"):
     print(f"Columnas totales        : {len(dataset.columns)}")
     print(f"Columnas modelo         : {len(columnas_modelo)}")
     print(f"Columnas contexto       : {columnas_contexto}")
+    print(f"Targets falsos corregidos: {targets_corregidos:,}")
+    print(f"Filas etiquetadas       : {filas_etiquetadas:,}")
+    print(f"Filas para scoring      : {filas_pendientes:,}")
     print(f"Objetivo positivo       : {objetivo_pct:.2%}")
     print(f"Desde                   : {dataset['Date'].min()}")
     print(f"Hasta                   : {dataset['Date'].max()}")
