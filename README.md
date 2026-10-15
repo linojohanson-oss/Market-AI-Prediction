@@ -58,6 +58,26 @@ Unlike traditional financial analysis tools, the platform combines multiple AI e
 
 ---
 
+# Quick Commands
+
+Most used commands from project root:
+
+```powershell
+# Run only crypto market
+py run_all_markets.py crypto
+
+# Run all markets except crypto
+py run_all_markets.py -crypto
+
+# Run only crypto and reuse existing models (skip retraining)
+py run_all_markets.py crypto --skip-training
+
+# Optimizer simulator reusing existing artifacts
+py run_optimizer_simulator.py --markets crypto --skip-pipeline
+```
+
+---
+
 # Artificial Intelligence
 
 The platform combines several Artificial Intelligence technologies working together.
@@ -341,6 +361,58 @@ Outputs are written under:
 
 - `reportes/simulaciones_optimizer/simulacion_resumen_global.csv`
 - `reportes/simulaciones_optimizer/<market>/sim_*.csv`
+
+---
+
+# Pipeline Run Modes (No Retrain Option)
+
+Use these commands when running day-to-day pipelines without changing training parameters.
+
+## Market argument behavior in run_all_markets.py
+
+- `crypto` -> run only crypto
+- `-crypto` -> run all markets except crypto
+- `--crypto` -> not supported as include flag
+
+Examples:
+
+```powershell
+py run_all_markets.py crypto
+py run_all_markets.py -crypto
+```
+
+## Reuse existing models (skip retraining)
+
+When target/training parameters are unchanged and models already exist, you can skip the training step:
+
+```powershell
+py run_all_markets.py crypto --skip-training
+```
+
+Direct market pipeline usage:
+
+```powershell
+py pipeline_market.py crypto --skip-training
+```
+
+## Price source for stop-loss and rebalance
+
+- Default mode (without `--live`) uses the latest downloaded close from `ranking_diario.csv` as current price reference.
+- Live mode (`--live`) fetches market price at runtime and uses that value in stop-loss and rebalance checks.
+- `current_positions.positions` must include only portfolio state fields (`ticker`, `name`, `quantity`, `avg_price`).
+- `current_price` in `app_config.json` is deprecated and ignored by the optimizer.
+
+Examples:
+
+```powershell
+py run_all_markets.py crypto --skip-training
+py run_all_markets.py crypto --skip-training --live
+```
+
+Notes:
+
+- `--skip-training` keeps data download, indicators, context, dataset, scoring, decision, optimizer, and reports.
+- If model artifacts are missing for the selected market, scoring/optimizer steps will fail. Run once without `--skip-training` to regenerate models.
 
 ---
 

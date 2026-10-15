@@ -3,9 +3,11 @@
 import os
 from pathlib import Path
 from datetime import datetime
+from functools import lru_cache
 
 import numpy as np
 import pandas as pd
+import yfinance as yf
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -69,14 +71,87 @@ def exportar_excel_portfolio_habilitado():
     return _parse_bool_env(os.getenv("MARKET_PORTFOLIO_EXPORT_EXCEL"), default=global_default)
 
 
+def usar_precios_en_vivo():
+    return _parse_bool_env(os.getenv("MARKET_LIVE_PRICES"), default=False)
+
+
+def _obtener_timestamp_reportes(reportes_dir):
+    candidatos = sorted(reportes_dir.glob("ranking_diario_*.csv"))
+    if not candidatos:
+        return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    ultimo = candidatos[-1].stem
+    prefijo = "ranking_diario_"
+    if ultimo.startswith(prefijo):
+        return ultimo[len(prefijo):]
+
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+@lru_cache(maxsize=512)
+def _precio_en_vivo_yfinance(ticker):
+    ticker = str(ticker or "").strip()
+    if not ticker:
+        return None
+
+    try:
+        instrumento = yf.Ticker(ticker)
+        fast_info = getattr(instrumento, "fast_info", None)
+        if fast_info is not None:
+            for clave in ("lastPrice", "last_price", "regularMarketPrice", "previousClose"):
+                try:
+                    valor = fast_info.get(clave) if hasattr(fast_info, "get") else getattr(fast_info, clave, None)
+                except Exception:
+                    valor = None
+                if valor is not None and pd.notna(valor):
+                    valor = float(valor)
+                    if valor > 0:
+                        return valor
+    except Exception:
+        pass
+
+    try:
+        info = yf.Ticker(ticker).info or {}
+        for clave in ("regularMarketPrice", "currentPrice", "previousClose"):
+            valor = info.get(clave)
+            if valor is not None and pd.notna(valor):
+                valor = float(valor)
+                if valor > 0:
+                    return valor
+    except Exception:
+        pass
+
+    try:
+        df = yf.download(
+            ticker,
+            period="1d",
+            interval="1m",
+            progress=False,
+            auto_adjust=False,
+            threads=False,
+        )
+        if df is not None and not df.empty and "Close" in df.columns:
+            cierre = pd.to_numeric(df["Close"], errors="coerce").dropna()
+            if not cierre.empty:
+                valor = float(cierre.iloc[-1])
+                if valor > 0:
+                    return valor
+    except Exception:
+        pass
+
+    return None
+
+
 def rutas_portfolio(nombre_mercado):
     market = MarketConfig(nombre_mercado)
     reportes_dir = ROOT / "reportes" / market.market
+    timestamp = _obtener_timestamp_reportes(reportes_dir)
 
     return {
         "market": market,
         "ranking": reportes_dir / "ranking_diario.csv",
         "decision": reportes_dir / f"decision_engine_{market.market}.csv",
+        "csv_ts_out": reportes_dir / f"portfolio_optimizer_{market.market}_{timestamp}.csv",
         "csv_out": reportes_dir / f"portfolio_optimizer_{market.market}.csv",
         "xlsx_out": reportes_dir / f"portfolio_optimizer_{market.market}.xlsx",
         "txt_out": reportes_dir / f"portfolio_optimizer_{market.market}.txt",
@@ -309,6 +384,8 @@ def construir_estado_actual(nombre_mercado, ranking, params):
         if "Nombre" in ranking_map.columns:
             name_map = ranking_map.set_index("_TickerNorm")["Nombre"].to_dict()
 
+    live_prices_enabled = usar_precios_en_vivo()
+
     filas = []
 
     for pos in positions:
@@ -323,9 +400,12 @@ def construir_estado_actual(nombre_mercado, ranking, params):
         qty = float(pos.get("quantity", 0.0) or 0.0)
         avg_price = float(pos.get("avg_price", 0.0) or 0.0)
 
-        current_price = float(pos.get("current_price", 0.0) or 0.0)
-        if current_price <= 0:
-            current_price = float(price_map.get(ticker_norm, 0.0) or 0.0)
+        current_price = float(price_map.get(ticker_norm, 0.0) or 0.0)
+        if live_prices_enabled:
+            live_price = _precio_en_vivo_yfinance(ticker_norm)
+            if live_price is not None and live_price > 0:
+                current_price = float(live_price)
+
         if current_price <= 0:
             current_price = avg_price
 
@@ -487,6 +567,7 @@ def generar_plan_rebalanceo(cartera_objetivo, cartera_actual, ranking, params, c
     edge_buffer = params["min_edge_buffer_pct"]
     min_trade_value = params["min_trade_value"]
     stop_loss_pct = float(params.get("stop_loss_pct", 0.0) or 0.0)
+    live_prices_enabled = usar_precios_en_vivo()
 
     score_map = {}
     signal_map = {}
@@ -581,7 +662,7 @@ def generar_plan_rebalanceo(cartera_objetivo, cartera_actual, ranking, params, c
         close = objetivo.get("Close", 0.0) or actual.get("Close", 0.0) or float(close_map.get(ticker, 0.0) or 0.0)
         ticker_out = objetivo.get("Ticker_Out") or actual.get("Ticker_Out") or ticker_para_output(ticker, nombre_mercado)
         avg_price = float(actual.get("Avg_Price", 0.0) or 0.0)
-        current_price = float(actual.get("Current_Price", close) or 0.0)
+        current_price = float(actual.get("Current_Price", close) or close or 0.0)
 
         stop_price = avg_price * (1.0 - stop_loss_pct) if avg_price > 0 and stop_loss_pct > 0 else 0.0
         stop_loss_triggered = (
@@ -626,6 +707,12 @@ def generar_plan_rebalanceo(cartera_objetivo, cartera_actual, ranking, params, c
             if accion_deseada == "BUY":
                 score_gap = max(0.0, score_objetivo - score_actual)
                 edge_estimado_pct = score_gap * alpha_factor
+
+                if live_prices_enabled and current_price > 0 and close > 0:
+                    live_upside_pct = max(0.0, ((current_price - close) / close) * 100.0)
+                    if live_upside_pct < edge_estimado_pct:
+                        edge_estimado_pct = live_upside_pct
+
                 required_pct = costo_pct + edge_buffer
                 motivo = "Compra sugerida si la mejora esperada supera costos de entrada."
             else:
@@ -665,6 +752,7 @@ def generar_plan_rebalanceo(cartera_objetivo, cartera_actual, ranking, params, c
             "Ticker": ticker_out,
             "Nombre": nombre,
             "Close": close,
+            "Current_Price": round(current_price, 8),
             "Capital_Actual": round(capital_actual, 2),
             "Capital_Objetivo": round(capital_objetivo, 2),
             "Delta_Capital": round(delta, 2),
@@ -831,6 +919,7 @@ def construir_portafolio(nombre_mercado="merval"):
     exportar = plan.copy()
 
     exportar.to_csv(rutas["csv_out"], index=False, encoding="utf-8-sig")
+    exportar.to_csv(rutas["csv_ts_out"], index=False, encoding="utf-8-sig")
     excel_resumen = "OMITIDO (usar --excel-all para habilitar)"
     if exportar_excel_portfolio_habilitado():
         exportar.to_excel(rutas["xlsx_out"], index=False)
@@ -897,6 +986,7 @@ def construir_portafolio(nombre_mercado="merval"):
     print("=" * 80)
 
     print(f"Mercado         : {market.display_name}")
+    print(f"CSV timestamped : {rutas['csv_ts_out'].name}")
     print(f"Capital total   : ${capital_total:,.2f}")
     print(f"Cash actual     : ${cash_actual:,.2f}")
     print(f"Cash objetivo   : ${cash_objetivo:,.2f}")

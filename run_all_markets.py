@@ -51,6 +51,8 @@ JSON_GLOBAL = os.path.join(BASE_PATH, "pipeline_maestro.json")
 
 def ejecutar_mercado(
     mercado,
+    skip_training=False,
+    live_prices=False,
     export_excel_indicators=False,
     export_excel_download=False,
     export_excel_dataset=False,
@@ -73,6 +75,8 @@ def ejecutar_mercado(
     child_env["MARKET_RANKING_EXPORT_EXCEL"] = "1" if export_excel_ranking else "0"
     child_env["MARKET_MODEL_RANKING_EXPORT_EXCEL"] = "1" if export_excel_model_ranking else "0"
     child_env["MARKET_CONTEXT_EXPORT_EXCEL"] = "1" if export_excel_context else "0"
+    child_env["MARKET_SKIP_TRAINING"] = "1" if skip_training else "0"
+    child_env["MARKET_LIVE_PRICES"] = "1" if live_prices else "0"
     child_env["PYTHONUNBUFFERED"] = "1"
     child_env["PYTHONIOENCODING"] = "utf-8"
 
@@ -138,6 +142,8 @@ def main():
     export_excel_model_ranking = False
     export_excel_context = False
     export_excel_all = False
+    skip_training = False
+    live_prices = False
 
     if len(sys.argv) > 1:
         args = sys.argv[1:]
@@ -155,10 +161,16 @@ def main():
             export_excel_model_ranking = True
         if "--excel-contexto" in args:
             export_excel_context = True
+        if "--skip-training" in args:
+            skip_training = True
+        if "--live" in args:
+            live_prices = True
 
         args = [
             a for a in args
             if a not in {
+                "--skip-training",
+                "--live",
                 "--excel-all",
                 "--excel-indicators",
                 "--excel-download",
@@ -224,11 +236,23 @@ def main():
         level="INFO",
         info_verbosity=2,
     )
+    log(
+        f"Skip training     : {'ON' if skip_training else 'OFF'}",
+        level="INFO",
+        info_verbosity=2,
+    )
+    log(
+        f"Live prices       : {'ON' if live_prices else 'OFF'}",
+        level="INFO",
+        info_verbosity=2,
+    )
     hubo_errores = False
 
     for mercado in filtered_markets:
         r = ejecutar_mercado(
             mercado,
+            skip_training=skip_training,
+            live_prices=live_prices,
             export_excel_indicators=export_excel_indicators,
             export_excel_download=export_excel_download,
             export_excel_dataset=export_excel_dataset,

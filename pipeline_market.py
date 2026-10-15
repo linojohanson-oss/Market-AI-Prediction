@@ -7,6 +7,8 @@ import shutil
 import io
 from contextlib import redirect_stdout, redirect_stderr
 
+import pandas as pd
+
 ROOT = Path(__file__).resolve().parent
 sys.path.append(str(ROOT))
 
@@ -71,7 +73,12 @@ def publicar_ranking_estable(nombre_mercado="merval"):
         shutil.copy2(src_xlsx, dst_xlsx)
         log(f"[SYNC] Ranking estable Excel: {dst_xlsx}", level="INFO", info_verbosity=3)
     else:
-        log("[WARN] No se encontró ranking Excel timestamped para publicar", level="WARNING")
+        pd.read_csv(src_csv).to_excel(dst_xlsx, index=False)
+        log(
+            f"[SYNC] Ranking estable Excel reconstruido desde CSV: {dst_xlsx}",
+            level="INFO",
+            info_verbosity=3,
+        )
 
     return {
         "ranking_csv": str(dst_csv),
@@ -174,6 +181,8 @@ def ejecutar_pipeline(mercado="merval"):
     )
     log(f"Optimización  : {'ON' if enable_optimization else 'OFF'}", level="INFO", info_verbosity=2)
     log(f"Sync ranking  : {'ON' if publish_stable_ranking else 'OFF'}", level="INFO", info_verbosity=2)
+    skip_training = os.getenv("MARKET_SKIP_TRAINING", "0") == "1"
+    log(f"Skip training : {'ON' if skip_training else 'OFF'}", level="INFO", info_verbosity=2)
     log("=" * 80, level="INFO", info_verbosity=1)
 
     pasos = [
@@ -181,10 +190,13 @@ def ejecutar_pipeline(mercado="merval"):
         ("Calcular indicadores", generar_indicadores),
         ("Generar contexto macro", generar_contexto_mercado),
         ("Generar dataset IA + contexto", generar_dataset_ia),
-        ("Entrenar modelos", entrenar_mercado),
-        ("Actualizar Model Manager", actualizar_market_model_manager),
         ("Generar scoring consensus", generar_market_scoring),
     ]
+
+    if not skip_training:
+        pasos.insert(4, ("Entrenar modelos", entrenar_mercado))
+
+    pasos.insert(5 if not skip_training else 4, ("Actualizar Model Manager", actualizar_market_model_manager))
 
     if publish_stable_ranking:
         pasos.append(("Publicar ranking estable (sin timestamp)", publicar_ranking_estable))
@@ -295,6 +307,10 @@ def seleccionar_mercado():
 
 if __name__ == "__main__":
     args = sys.argv[1:]
+    enable_skip_training = "--skip-training" in args
+    disable_skip_training = "--no-skip-training" in args
+    enable_live_prices = "--live" in args
+    disable_live_prices = "--no-live" in args
     enable_excel_all = "--excel-all" in args
     disable_excel_all = "--no-excel-all" in args
     enable_excel = "--excel-indicators" in args
@@ -313,6 +329,10 @@ if __name__ == "__main__":
     args_clean = [
         a for a in args
         if a not in {
+            "--skip-training",
+            "--no-skip-training",
+            "--live",
+            "--no-live",
             "--excel-indicators",
             "--no-excel-indicators",
             "--excel-download",
@@ -380,6 +400,20 @@ if __name__ == "__main__":
         os.environ["MARKET_CONTEXT_EXPORT_EXCEL"] = "1"
     else:
         os.environ.setdefault("MARKET_CONTEXT_EXPORT_EXCEL", global_excel_default)
+
+    if disable_skip_training:
+        os.environ["MARKET_SKIP_TRAINING"] = "0"
+    elif enable_skip_training:
+        os.environ["MARKET_SKIP_TRAINING"] = "1"
+    else:
+        os.environ.setdefault("MARKET_SKIP_TRAINING", "0")
+
+    if disable_live_prices:
+        os.environ["MARKET_LIVE_PRICES"] = "0"
+    elif enable_live_prices:
+        os.environ["MARKET_LIVE_PRICES"] = "1"
+    else:
+        os.environ.setdefault("MARKET_LIVE_PRICES", "0")
 
     if args_clean:
         mercado = args_clean[0].lower().strip()

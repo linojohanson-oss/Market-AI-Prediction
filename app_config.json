@@ -60,7 +60,7 @@
     "alpha_per_score_point_pct": 0.03,
     "min_edge_buffer_pct": 0.2,
     "min_trade_value": 150.0,
-    "stop_loss_pct": 0.02,
+    "stop_loss_pct": 0.015,
     "markets": {
       "crypto": {
         "capital_inicial": 475.0,
@@ -72,23 +72,24 @@
           "fixed_cost_per_trade": 0.0
         },
         "current_positions": {
-          "cash": 166.20,
+          "cash": 419,
           "positions": [
-            {
-              "ticker": "ETH-USDT",
-              "quantity": 0.0606,
-              "avg_price": 2474.50
-            },
-            {
-              "ticker": "SHIB-USDT",
-              "quantity": 15454545,
-              "avg_price": 0.0000055
-            },
-            {
-              "ticker": "LINK-USDT",
-              "quantity": 12.84,
-              "avg_price": 11.685
-            }
+          {
+              "ticker": "SUSHI-USDT",
+              "name": "SushiSwap",
+              "quantity": 573.1,
+              "avg_price": 0.253
+          },{
+              "ticker": "ALGO-USDT",
+              "name": "Algorand",
+              "quantity": 1153,
+              "avg_price": 0.1301
+          },{
+              "ticker": "LTC-USDT",
+              "name": "Litecoin",
+              "quantity": 2.129,
+              "avg_price": 70.45
+          }
           ]
         }
       },
